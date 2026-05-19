@@ -5,7 +5,7 @@ use oxc_data_structures::stack::NonEmptyStack;
 use oxc_semantic::Scoping;
 use oxc_span::SourceType;
 use oxc_str::Str;
-use oxc_syntax::symbol::SymbolId;
+use oxc_syntax::{scope::ScopeId, symbol::SymbolId};
 
 use crate::{CompressOptions, symbol_value::SymbolValues};
 
@@ -30,6 +30,22 @@ pub struct MinifierState<'a> {
     /// setters that make subsequent property writes side-effectful.
     pub proto_write_symbols: FxHashSet<SymbolId>,
 
+    /// One frame per enclosing function body (program root at the bottom).
+    /// `(body_scope, saw_non_declarative_stmt)`. While `.1` is false, the next
+    /// `var x = <literal>;` whose declarator sits at `.0` is safe to inline
+    /// despite hoisting. Pushed by `enter_function_body`, popped by
+    /// `exit_function_body`. See `init_symbol_value`.
+    pub body_unsafe_stack: NonEmptyStack<(ScopeId, bool)>,
+
+    /// True when the program body contains any module-loader statement: a
+    /// static `import`, `export * from`, or `export … from`. All three are
+    /// hoisted and trigger evaluation of a foreign module wherever they appear
+    /// in source. Set once in `enter_program`. When `true`, the program-scope
+    /// var-inlining path bails: a cyclic importer can observe any binding our
+    /// exported functions/classes close over, regardless of whether the var
+    /// itself is exported.
+    pub module_has_loaders: bool,
+
     pub changed: bool,
 }
 
@@ -48,6 +64,8 @@ impl MinifierState<'_> {
             symbol_values: SymbolValues::new(scoping.symbols_len()),
             class_symbols_stack: ClassSymbolsStack::new(),
             proto_write_symbols: FxHashSet::default(),
+            body_unsafe_stack: NonEmptyStack::new((scoping.root_scope_id(), false)),
+            module_has_loaders: false,
             changed: false,
         }
     }
