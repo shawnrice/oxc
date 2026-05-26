@@ -638,7 +638,12 @@ impl<'a> PeepholeOptimizations {
         args: &mut Vec<'a, Argument<'a>>,
         ctx: &mut TraverseCtx<'a>,
     ) -> Vec<'a, Expression<'a>> {
-        ctx.ast.vec_from_iter(args.drain(..).filter_map(|arg| {
+        // `args.drain(..)` would silently move owned `Argument`s out and the
+        // filter would drop any whose inner expression `remove_unused_expression`
+        // collapsed to nothing — leaking references in the dropped subtree.
+        // Use a manual loop so we can `drop_expression` before discarding.
+        let mut out: Vec<'a, Expression<'a>> = ctx.ast.vec_with_capacity(args.len());
+        for arg in args.drain(..) {
             let mut expr = match arg {
                 Argument::SpreadElement(e) => ctx.ast.expression_array(
                     e.span,
@@ -646,8 +651,13 @@ impl<'a> PeepholeOptimizations {
                 ),
                 match_expression!(Argument) => arg.into_expression(),
             };
-            (!Self::remove_unused_expression(&mut expr, ctx)).then_some(expr)
-        }))
+            if Self::remove_unused_expression(&mut expr, ctx) {
+                ctx.drop_expression(&expr);
+            } else {
+                out.push(expr);
+            }
+        }
+        out
     }
 
     pub fn remove_unused_assignment_expr(
