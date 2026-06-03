@@ -50,7 +50,10 @@ invocation and (b) break repo-wide CI until the port compiles. Excluded, it
 lives in-repo and builds standalone:
 
 ```
-cargo build --manifest-path crates/oxc_react_compiler/Cargo.toml
+cargo build  --manifest-path crates/oxc_react_compiler/Cargo.toml
+cargo test   --manifest-path crates/oxc_react_compiler/Cargo.toml
+# Try it on a component (or pass a file path):
+cargo run    --manifest-path crates/oxc_react_compiler/Cargo.toml --example react_compiler
 ```
 
 Promote to a member (swap path deps for `{ workspace = true }`) once it compiles
