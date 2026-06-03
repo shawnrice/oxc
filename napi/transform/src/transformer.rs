@@ -164,6 +164,8 @@ impl TryFrom<TransformOptions> for oxc::transformer::TransformOptions {
             _ => EnvOptions::default(),
         };
         Ok(Self {
+            // React Compiler is not yet exposed through the JS options; off by default.
+            react_compiler: None,
             cwd: options.cwd.map(PathBuf::from).unwrap_or_default(),
             assumptions: options.assumptions.map(Into::into).unwrap_or_default(),
             typescript: options

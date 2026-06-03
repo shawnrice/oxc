@@ -57,6 +57,19 @@ pub struct TransformOptions {
     /// See [preset-react](https://babeljs.io/docs/babel-preset-react)
     pub jsx: JsxOptions,
 
+    /// [React Compiler](https://github.com/facebook/react/pull/36173) — **off by default**.
+    ///
+    /// `None` disables it (the default). When `Some`, the React Compiler runs as
+    /// the *first* transform (before JSX and ES lowering), memoizing React
+    /// components and hooks.
+    ///
+    /// The compiler itself lives out of tree (`oxc_react_compiler`, which pulls
+    /// the React Compiler core crates), and — because it must build a `Semantic`
+    /// and replace the whole program — it runs as a pre-pass in the driver, not
+    /// inside [`Transformer::build_with_scoping`]. This field is the config the
+    /// driver reads; it is inert unless that integration layer runs it.
+    pub react_compiler: Option<ReactCompilerOptions>,
+
     /// ECMAScript Env Options
     pub env: EnvOptions,
 
@@ -68,6 +81,21 @@ pub struct TransformOptions {
 
     /// Helper loading configuration for generated runtime helpers.
     pub helper_loader: HelperLoaderOptions,
+}
+
+/// Options for the [React Compiler](https://github.com/facebook/react/pull/36173)
+/// (the Rust port) transform.
+///
+/// `plugin_options` is the compiler's `PluginOptions` as a camelCase JSON object,
+/// forwarded to the compiler verbatim — so the full option surface is reachable
+/// without oxc mirroring it (the option set is large and still evolving). The
+/// integration layer fills the fields the JS plugin normally pre-resolves
+/// (`shouldCompile`, `isDev`, `enableReanimated`, `filename`) when omitted, so a
+/// default value compiles every component.
+#[derive(Debug, Default, Clone)]
+pub struct ReactCompilerOptions {
+    /// React Compiler `PluginOptions` as a (camelCase) JSON value, passed through verbatim.
+    pub plugin_options: serde_json::Value,
 }
 
 impl TransformOptions {
@@ -90,6 +118,8 @@ impl TransformOptions {
                 refresh: Some(ReactRefreshOptions::default()),
                 ..JsxOptions::default()
             },
+            // React Compiler is opt-in even with everything else enabled.
+            react_compiler: None,
             env: EnvOptions::enable_all(/* include_unfinished_plugins */ false),
             proposals: ProposalOptions::default(),
             plugins: PluginsOptions {
@@ -284,6 +314,8 @@ impl TryFrom<&BabelOptions> for TransformOptions {
             typescript,
             decorator,
             jsx,
+            // Babel options have no React Compiler equivalent; configure it directly.
+            react_compiler: None,
             env: EnvOptions {
                 module,
                 regexp,
