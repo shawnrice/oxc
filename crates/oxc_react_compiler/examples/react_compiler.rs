@@ -1,4 +1,4 @@
-#![expect(clippy::print_stdout)]
+#![allow(clippy::print_stdout)] // example prints to stdout
 //! # React Compiler Example
 //!
 //! Runs the Rust port of React Compiler ([facebook/react#36173]) over a file
@@ -7,12 +7,8 @@
 //!
 //! ## Usage
 //!
-//! `oxc_react_compiler` is excluded from the workspace (it pulls the React
-//! Compiler core crates as git dependencies), so run it via its manifest:
-//!
 //! ```bash
-//! cargo run --manifest-path crates/oxc_react_compiler/Cargo.toml \
-//!   --example react_compiler [filename]
+//! cargo run -p oxc_react_compiler --example react_compiler [filename]
 //! ```
 //!
 //! With no `filename`, a small built-in component is compiled.
@@ -33,7 +29,7 @@ const DEFAULT_SOURCE: &str = "function Component(props) {
 ";
 
 // Instruction:
-// run `cargo run --manifest-path crates/oxc_react_compiler/Cargo.toml --example react_compiler`
+// run `cargo run -p oxc_react_compiler --example react_compiler`
 
 /// Compile a React component with the Rust React Compiler and print the result.
 fn main() {

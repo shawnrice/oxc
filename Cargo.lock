@@ -571,6 +571,7 @@ checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
  "block-buffer 0.10.4",
  "crypto-common 0.1.6",
+ "subtle",
 ]
 
 [[package]]
@@ -1013,6 +1014,15 @@ name = "heck"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
+
+[[package]]
+name = "hmac"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c49c37c09c17a53d937dfbb742eb3a961d65a994e6bcdcf37e7399d0cc8ab5e"
+dependencies = [
+ "digest 0.10.7",
+]
 
 [[package]]
 name = "http"
@@ -2359,6 +2369,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "oxc_react_compiler"
+version = "0.0.0"
+dependencies = [
+ "indexmap",
+ "oxc_allocator",
+ "oxc_ast",
+ "oxc_ast_visit",
+ "oxc_codegen",
+ "oxc_diagnostics",
+ "oxc_parser",
+ "oxc_semantic",
+ "oxc_span",
+ "oxc_syntax",
+ "react_compiler",
+ "react_compiler_ast",
+ "react_compiler_hir",
+ "serde_json",
+]
+
+[[package]]
 name = "oxc_regular_expression"
 version = "0.134.0"
 dependencies = [
@@ -2988,6 +3018,147 @@ checksum = "22e18b0f0062d30d4230b2e85ff77fdfe4326feb054b9783a3460d8435c8ab91"
 dependencies = [
  "crossbeam-deque",
  "crossbeam-utils",
+]
+
+[[package]]
+name = "react_compiler"
+version = "0.1.0"
+source = "git+https://github.com/josephsavona/react?rev=75f6a2b16b7826b9a35a9b86fd135f19a37af05c#75f6a2b16b7826b9a35a9b86fd135f19a37af05c"
+dependencies = [
+ "indexmap",
+ "react_compiler_ast",
+ "react_compiler_diagnostics",
+ "react_compiler_hir",
+ "react_compiler_inference",
+ "react_compiler_lowering",
+ "react_compiler_optimization",
+ "react_compiler_reactive_scopes",
+ "react_compiler_ssa",
+ "react_compiler_typeinference",
+ "react_compiler_validation",
+ "regex",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "react_compiler_ast"
+version = "0.1.0"
+source = "git+https://github.com/josephsavona/react?rev=75f6a2b16b7826b9a35a9b86fd135f19a37af05c#75f6a2b16b7826b9a35a9b86fd135f19a37af05c"
+dependencies = [
+ "indexmap",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "react_compiler_diagnostics"
+version = "0.1.0"
+source = "git+https://github.com/josephsavona/react?rev=75f6a2b16b7826b9a35a9b86fd135f19a37af05c#75f6a2b16b7826b9a35a9b86fd135f19a37af05c"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "react_compiler_hir"
+version = "0.1.0"
+source = "git+https://github.com/josephsavona/react?rev=75f6a2b16b7826b9a35a9b86fd135f19a37af05c#75f6a2b16b7826b9a35a9b86fd135f19a37af05c"
+dependencies = [
+ "indexmap",
+ "react_compiler_diagnostics",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "react_compiler_inference"
+version = "0.1.0"
+source = "git+https://github.com/josephsavona/react?rev=75f6a2b16b7826b9a35a9b86fd135f19a37af05c#75f6a2b16b7826b9a35a9b86fd135f19a37af05c"
+dependencies = [
+ "indexmap",
+ "react_compiler_diagnostics",
+ "react_compiler_hir",
+ "react_compiler_lowering",
+ "react_compiler_optimization",
+ "react_compiler_ssa",
+ "react_compiler_utils",
+]
+
+[[package]]
+name = "react_compiler_lowering"
+version = "0.1.0"
+source = "git+https://github.com/josephsavona/react?rev=75f6a2b16b7826b9a35a9b86fd135f19a37af05c#75f6a2b16b7826b9a35a9b86fd135f19a37af05c"
+dependencies = [
+ "indexmap",
+ "react_compiler_ast",
+ "react_compiler_diagnostics",
+ "react_compiler_hir",
+ "serde_json",
+]
+
+[[package]]
+name = "react_compiler_optimization"
+version = "0.1.0"
+source = "git+https://github.com/josephsavona/react?rev=75f6a2b16b7826b9a35a9b86fd135f19a37af05c#75f6a2b16b7826b9a35a9b86fd135f19a37af05c"
+dependencies = [
+ "indexmap",
+ "react_compiler_diagnostics",
+ "react_compiler_hir",
+ "react_compiler_lowering",
+ "react_compiler_ssa",
+]
+
+[[package]]
+name = "react_compiler_reactive_scopes"
+version = "0.1.0"
+source = "git+https://github.com/josephsavona/react?rev=75f6a2b16b7826b9a35a9b86fd135f19a37af05c#75f6a2b16b7826b9a35a9b86fd135f19a37af05c"
+dependencies = [
+ "hmac",
+ "indexmap",
+ "react_compiler_ast",
+ "react_compiler_diagnostics",
+ "react_compiler_hir",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
+name = "react_compiler_ssa"
+version = "0.1.0"
+source = "git+https://github.com/josephsavona/react?rev=75f6a2b16b7826b9a35a9b86fd135f19a37af05c#75f6a2b16b7826b9a35a9b86fd135f19a37af05c"
+dependencies = [
+ "indexmap",
+ "react_compiler_diagnostics",
+ "react_compiler_hir",
+ "react_compiler_lowering",
+]
+
+[[package]]
+name = "react_compiler_typeinference"
+version = "0.1.0"
+source = "git+https://github.com/josephsavona/react?rev=75f6a2b16b7826b9a35a9b86fd135f19a37af05c#75f6a2b16b7826b9a35a9b86fd135f19a37af05c"
+dependencies = [
+ "react_compiler_diagnostics",
+ "react_compiler_hir",
+ "react_compiler_ssa",
+]
+
+[[package]]
+name = "react_compiler_utils"
+version = "0.1.0"
+source = "git+https://github.com/josephsavona/react?rev=75f6a2b16b7826b9a35a9b86fd135f19a37af05c#75f6a2b16b7826b9a35a9b86fd135f19a37af05c"
+dependencies = [
+ "indexmap",
+]
+
+[[package]]
+name = "react_compiler_validation"
+version = "0.1.0"
+source = "git+https://github.com/josephsavona/react?rev=75f6a2b16b7826b9a35a9b86fd135f19a37af05c#75f6a2b16b7826b9a35a9b86fd135f19a37af05c"
+dependencies = [
+ "indexmap",
+ "react_compiler_diagnostics",
+ "react_compiler_hir",
 ]
 
 [[package]]

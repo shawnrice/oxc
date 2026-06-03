@@ -3,11 +3,11 @@
 Native oxc integration for the Rust port of React Compiler
 ([facebook/react#36173](https://github.com/facebook/react/pull/36173)).
 
-**Status:** Compiles standalone against workspace oxc 0.134 (React core crates
+**Status:** Builds as a workspace member against oxc 0.134 (React core crates
 pinned at rev `75f6a2b16b78`). The 0.121→0.134 drift turned out to be a single
 change — `oxc_span::Atom` split into `oxc_str::{Ident, Str}` — confined to the
 reverse converter; everything else compiled untouched. An end-to-end test
-(`cargo test --manifest-path crates/oxc_react_compiler/Cargo.toml`) confirms a
+(`cargo test -p oxc_react_compiler`) confirms a
 component is fully memoized — `_c(n)` cache + `react/compiler-runtime` import —
 through the real oxc→RC→oxc round trip. Next up: the `todo!()` guard, a full
 fixture conformance harness, then wiring into the transform pipeline.
@@ -42,22 +42,29 @@ So the chosen split:
   - `diagnostics.rs` — `CompileResult` → `oxc_diagnostics::OxcDiagnostic`.
 - **Ignore their `react_compiler_oxc`** crate — reference only.
 
-### Why excluded from the workspace (for now)
+### Workspace membership
 
-`crates/oxc_react_compiler` is in the root `Cargo.toml` `exclude` list. As a
-member it would (a) force a `facebook/react` clone on every workspace cargo
-invocation and (b) break repo-wide CI until the port compiles. Excluded, it
-lives in-repo and builds standalone:
+`crates/oxc_react_compiler` is a normal workspace member, using `{ workspace =
+true }` deps for the oxc crates and git deps for the React Compiler core.
 
 ```
-cargo build  --manifest-path crates/oxc_react_compiler/Cargo.toml
-cargo test   --manifest-path crates/oxc_react_compiler/Cargo.toml
+cargo build -p oxc_react_compiler
+cargo test  -p oxc_react_compiler
 # Try it on a component (or pass a file path):
-cargo run    --manifest-path crates/oxc_react_compiler/Cargo.toml --example react_compiler
+cargo run   -p oxc_react_compiler --example react_compiler
 ```
 
-Promote to a member (swap path deps for `{ workspace = true }`) once it compiles
-and `react_compiler` is published to crates.io.
+Two consequences of membership to keep in mind:
+
+- **React clone.** The git dependency means the first workspace cargo operation
+  fetches the `josephsavona/react` fork at the pinned `rev`. Move to a crates.io
+  release once the React Compiler core crates are published.
+- **Relaxed lints.** The `src/` conversion modules are vendored close to
+  upstream, so the crate defines its own `[lints.clippy]` (allowing the few
+  rules they trip: `disallowed_types`, `collapsible_if`, `needless_return`,
+  `unnecessary_unwrap`) instead of inheriting `[lints] workspace = true`. Clippy's
+  default correctness/perf checks still apply; the in-house restriction lints do
+  not. Re-check on each upstream sync.
 
 ## Pipeline placement (decided)
 
@@ -110,7 +117,9 @@ JSX/modern syntax would be gone and there'd be nothing to memoize.
    traversal. `None` (no change) is free and preserves spans/comments.
 7. **[expose] Surfaces.** `reactCompiler` flag in `napi/transform`; the much
    cheaper `lint()` (`no_emit`) path in oxlint for RC bailout diagnostics.
-8. **[promote] Workspace member** once it compiles + core crates are published.
+8. **[promote] Workspace member** ✅ Done — it's a member with relaxed lints
+   (see "Workspace membership"). Still pending: move the React core crates from a
+   git `rev` to a crates.io release once published.
 
 ## Open questions / risks
 
