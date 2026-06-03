@@ -64,6 +64,18 @@ pub struct TransformOptions {
     /// components and hooks — it builds a `Semantic`, runs the compiler, replaces
     /// the program, and rebuilds scoping for the downstream passes.
     ///
+    /// The value is the compiler's concrete [`ReactCompilerOptions`]; build one
+    /// with `oxc_react_compiler::default_plugin_options` (which documents every
+    /// field, its accepted values, and the defaults) and override via
+    /// struct-update syntax:
+    ///
+    /// ```ignore
+    /// TransformOptions {
+    ///     react_compiler: Some(oxc_react_compiler::default_plugin_options()),
+    ///     ..Default::default()
+    /// }
+    /// ```
+    ///
     /// The compiler lives in the out-of-tree `oxc_react_compiler` crate, which
     /// pulls the (currently unpublished) React Compiler core crates.
     pub react_compiler: Option<ReactCompilerOptions>,
@@ -82,11 +94,11 @@ pub struct TransformOptions {
 }
 
 /// Options for the [React Compiler](https://github.com/facebook/react/pull/36173)
-/// (the Rust port) transform.
+/// (the Rust port) transform — the compiler's concrete, fully-typed `PluginOptions`.
 ///
-/// This is the compiler's concrete `PluginOptions` (the full, typed option set).
-/// It has no `Default`, so build one with
-/// [`oxc_react_compiler::default_plugin_options`] and struct-update syntax.
+/// It has no `Default`; build one with `oxc_react_compiler::default_plugin_options`
+/// (which documents every option, its accepted values, and the defaults) and
+/// override fields via struct-update syntax.
 pub use oxc_react_compiler::PluginOptions as ReactCompilerOptions;
 
 impl TransformOptions {

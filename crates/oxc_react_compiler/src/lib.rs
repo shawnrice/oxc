@@ -19,15 +19,52 @@ use react_compiler_hir::environment_config::EnvironmentConfig;
 // without depending on the upstream `react_compiler` crate directly.
 pub use react_compiler::entrypoint::plugin_options::PluginOptions;
 
-/// A [`PluginOptions`] populated with the compiler's standard defaults
-/// (React 19 target, `infer` compilation mode, no panic threshold, ...).
+/// A [`PluginOptions`] populated with the compiler's standard defaults.
 ///
 /// `PluginOptions` has no `Default` (the JS plugin pre-resolves several fields),
-/// so use this with struct-update syntax to set only what you need:
+/// so build options with struct-update syntax, overriding only what you need:
 ///
 /// ```ignore
-/// PluginOptions { compilation_mode: "annotation".to_string(), ..default_plugin_options() }
+/// let options = PluginOptions {
+///     compilation_mode: "annotation".to_string(),
+///     ..default_plugin_options()
+/// };
 /// ```
+///
+/// # Options
+///
+/// The default this function returns is shown in parentheses.
+///
+/// - **`should_compile`** (`true`) — master on/off switch; the JS plugin resolves
+///   it from gating / opt-in. Set `false` to skip the file entirely.
+/// - **`compilation_mode`** (`"infer"`) — which functions to compile: `"infer"`
+///   (components & hooks, by heuristics), `"syntax"` (by syntactic position),
+///   `"annotation"` (only `"use memo"`-annotated functions), or `"all"`.
+/// - **`panic_threshold`** (`"none"`) — on a bailout: `"none"` skips the function,
+///   `"critical_errors"` throws on critical ones, `"all_errors"` throws on any.
+/// - **`target`** (React `"19"`) — runtime target `"17"`, `"18"`, or `"19"` (or a
+///   Meta-internal runtime module). 17/18 need the `react-compiler-runtime`
+///   package; 19 ships the runtime in `react` itself.
+/// - **`no_emit`** (`false`) — analyze and report diagnostics only; emit no code.
+/// - **`output_mode`** (`None`) — `"client"`, `"ssr"`, or `"lint"`.
+/// - **`ignore_use_no_forget`** (`false`) — when `true`, compile even functions
+///   marked `"use no memo"` / `"use no forget"`.
+/// - **`custom_opt_out_directives`** (`None`) — extra directives that opt a
+///   function out of compilation.
+/// - **`gating`** / **`dynamic_gating`** (`None`) — also emit a gated
+///   (feature-flagged) version of each compiled function.
+/// - **`eslint_suppression_rules`** (`None`) — ESLint rules whose suppressions
+///   opt a function out.
+/// - **`flow_suppressions`** (`true`) — treat Flow suppression comments as opt-outs.
+/// - **`enable_reanimated`** (`false`) — enable `react-native-reanimated` support.
+/// - **`is_dev`** (`false`) — development mode (extra validation / instrumentation).
+/// - **`filename`** (`None`) — source file name, used for the fast-refresh hash
+///   and in diagnostics.
+/// - **`environment`** (default) — the large inner `EnvironmentConfig` governing
+///   inference, memoization, and validation; see its own docs for the sub-options.
+///
+/// `source_code`, `profiling`, and `debug` are JS-shim / diagnostic plumbing and
+/// stay at their inert defaults.
 pub fn default_plugin_options() -> PluginOptions {
     PluginOptions {
         should_compile: true,
