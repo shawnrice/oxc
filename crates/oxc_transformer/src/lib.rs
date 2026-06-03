@@ -22,6 +22,8 @@ mod options;
 mod state;
 mod utils;
 
+mod react_compiler;
+
 // Presets: <https://babel.dev/docs/presets>
 mod es2015;
 mod es2016;
@@ -110,6 +112,7 @@ pub struct Transformer<'a> {
     env: EnvOptions,
     #[expect(dead_code)]
     proposals: ProposalOptions,
+    react_compiler: Option<ReactCompilerOptions>,
 }
 
 impl<'a> Transformer<'a> {
@@ -125,6 +128,7 @@ impl<'a> Transformer<'a> {
             jsx: options.jsx.clone(),
             env: options.env,
             proposals: options.proposals,
+            react_compiler: options.react_compiler.clone(),
         }
     }
 
@@ -135,6 +139,20 @@ impl<'a> Transformer<'a> {
         program: &mut Program<'a>,
     ) -> TransformerReturn {
         let allocator = self.allocator;
+
+        // React Compiler runs first, on the pristine AST, before every other transform.
+        let mut react_compiler_errors = std::vec::Vec::new();
+        let scoping = match self.react_compiler.take() {
+            Some(options) => react_compiler::run(
+                program,
+                allocator,
+                scoping,
+                &options,
+                &mut react_compiler_errors,
+            ),
+            None => scoping,
+        };
+
         let ast_builder = AstBuilder::new(allocator);
 
         self.state.source_type = program.source_type;
@@ -189,8 +207,12 @@ impl<'a> Transformer<'a> {
         traverse_mut_with_ctx(&mut transformer, program, &mut reusable_ctx);
         let (mut state, scoping) = reusable_ctx.into_state_and_scoping();
         let helpers_used = state.helper_loader.used_helpers.drain().collect();
+
+        let mut errors = react_compiler_errors;
+        errors.extend(state.take_errors());
+
         #[expect(deprecated)]
-        TransformerReturn { errors: state.take_errors(), scoping, helpers_used }
+        TransformerReturn { errors, scoping, helpers_used }
     }
 }
 

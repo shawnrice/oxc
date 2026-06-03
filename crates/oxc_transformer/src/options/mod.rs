@@ -61,13 +61,11 @@ pub struct TransformOptions {
     ///
     /// `None` disables it (the default). When `Some`, the React Compiler runs as
     /// the *first* transform (before JSX and ES lowering), memoizing React
-    /// components and hooks.
+    /// components and hooks — it builds a `Semantic`, runs the compiler, replaces
+    /// the program, and rebuilds scoping for the downstream passes.
     ///
-    /// The compiler itself lives out of tree (`oxc_react_compiler`, which pulls
-    /// the React Compiler core crates), and — because it must build a `Semantic`
-    /// and replace the whole program — it runs as a pre-pass in the driver, not
-    /// inside [`Transformer::build_with_scoping`]. This field is the config the
-    /// driver reads; it is inert unless that integration layer runs it.
+    /// The compiler lives in the out-of-tree `oxc_react_compiler` crate, which
+    /// pulls the (currently unpublished) React Compiler core crates.
     pub react_compiler: Option<ReactCompilerOptions>,
 
     /// ECMAScript Env Options

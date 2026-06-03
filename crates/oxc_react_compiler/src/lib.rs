@@ -13,7 +13,9 @@ use convert_scope::convert_scope_info;
 use diagnostics::compile_result_to_diagnostics;
 use prefilter::has_react_like_functions;
 use react_compiler::entrypoint::compile_result::LoggerEvent;
-use react_compiler::entrypoint::plugin_options::PluginOptions;
+// Re-exported so integrations (e.g. `oxc_transformer`) can name the option type
+// without depending on the upstream `react_compiler` crate directly.
+pub use react_compiler::entrypoint::plugin_options::PluginOptions;
 
 /// Result of compiling a program via the OXC frontend.
 pub struct TransformResult {
