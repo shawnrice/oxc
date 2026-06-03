@@ -212,3 +212,60 @@ pub fn lint_source(
 
     lint(&parsed.program, &semantic, source_text, options)
 }
+
+// oxc-added: end-to-end smoke tests (not part of upstream `react_compiler_oxc`).
+// Exercise the full pipeline: oxc parse + semantic -> convert -> compile_program
+// -> convert back -> oxc codegen, and assert the React Compiler memoization
+// artifacts actually appear in the emitted code.
+#[cfg(test)]
+mod tests {
+    use react_compiler::entrypoint::plugin_options::PluginOptions;
+
+    use super::{emit, transform_source};
+
+    fn options() -> PluginOptions {
+        // Only the non-`#[serde(default)]` fields are required; the rest
+        // (compilationMode "infer", target React 19, environment, ...) default.
+        serde_json::from_value(serde_json::json!({
+            "shouldCompile": true,
+            "enableReanimated": false,
+            "isDev": false,
+            "filename": "Component.jsx",
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn memoizes_a_component_end_to_end() {
+        let source = "function Component(props) {\n  \
+            return <div onClick={() => props.onClick()}>{props.text}</div>;\n}\n";
+
+        let result = transform_source(source, oxc_span::SourceType::tsx(), options());
+
+        assert!(
+            result.diagnostics.is_empty(),
+            "unexpected diagnostics: {:?}",
+            result.diagnostics
+        );
+        let file = result.file.expect("React Compiler should have transformed the component");
+
+        let allocator = oxc_allocator::Allocator::default();
+        let output = emit(&file, &allocator, Some(source), &result.rename_plan);
+
+        // Memoization artifacts proving the full oxc -> RC -> oxc round trip ran.
+        assert!(
+            output.contains("react/compiler-runtime"),
+            "expected the compiler-runtime cache import in output:\n{output}"
+        );
+        assert!(output.contains("_c("), "expected memo cache reads (`_c(...)`) in output:\n{output}");
+    }
+
+    #[test]
+    fn skips_non_react_code() {
+        // A plain, non-component/non-hook function is filtered out: no change.
+        let source = "function add(a, b) {\n  return a + b;\n}\n";
+        let result = transform_source(source, oxc_span::SourceType::tsx(), options());
+        assert!(result.file.is_none(), "non-React code must not be transformed");
+        assert!(result.rename_plan.is_empty());
+    }
+}

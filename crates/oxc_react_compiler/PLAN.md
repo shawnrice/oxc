@@ -6,8 +6,11 @@ Native oxc integration for the Rust port of React Compiler
 **Status:** Compiles standalone against workspace oxc 0.134 (React core crates
 pinned at rev `75f6a2b16b78`). The 0.121→0.134 drift turned out to be a single
 change — `oxc_span::Atom` split into `oxc_str::{Ident, Str}` — confined to the
-reverse converter; everything else compiled untouched. Next up: the `todo!()`
-guard, conformance harness, then wiring into the transform pipeline.
+reverse converter; everything else compiled untouched. An end-to-end test
+(`cargo test --manifest-path crates/oxc_react_compiler/Cargo.toml`) confirms a
+component is fully memoized — `_c(n)` cache + `react/compiler-runtime` import —
+through the real oxc→RC→oxc round trip. Next up: the `todo!()` guard, a full
+fixture conformance harness, then wiring into the transform pipeline.
 
 ## Architecture decision
 
@@ -87,8 +90,10 @@ JSX/modern syntax would be gone and there'd be nothing to memoize.
    (`TSImportEqualsDeclaration`, `TSExportAssignment`, namespace exports,
    `V8IntrinsicExpression`, `PrivateInExpression`). Detect in the prefilter and
    skip the file (return unchanged) instead of panicking.
-4. **[test] Round-trip + conformance.** Port a slice of the PR's fixtures /
-   `test-e2e.sh` comparison so we can track output parity with the TS compiler.
+4. **[test] Round-trip + conformance.** 🟡 Started: a round-trip smoke test in
+   `lib.rs` (memoizes a component; skips non-React code). Still TODO: port a
+   slice of the PR's fixtures / `test-e2e.sh` to track output parity with the TS
+   compiler.
 5. **[perf] Kill the JSON boundary.** `compile_program` returns
    `ast: Option<Box<serde_json::value::RawValue>>` (serialized). Negotiate an
    in-process `File`/patch-returning entrypoint with Meta; until then, at least
