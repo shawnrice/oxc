@@ -329,8 +329,25 @@ export interface PluginsOptions {
   taggedTemplateEscape?: boolean
 }
 
+/** Dynamic gating for {@link ReactCompilerOptions#dynamicGating}. */
+export interface ReactCompilerDynamicGating {
+  /** Module the gating import comes from. */
+  source: string
+}
+
+/** Static gating for {@link ReactCompilerOptions#gating}. */
+export interface ReactCompilerGating {
+  /** Module the gating import comes from. */
+  source: string
+  /** Imported specifier used as the gate. */
+  importSpecifierName: string
+}
+
 /**
  * Options for the experimental [React Compiler](https://github.com/facebook/react/pull/36173).
+ *
+ * Mirrors the compiler's `PluginOptions`. The deep `environment` configuration
+ * (inference / validation flags) is not surfaced here.
  *
  * @see {@link TransformOptions#reactCompiler}
  */
@@ -354,6 +371,49 @@ export interface ReactCompilerOptions {
    * @default '19'
    */
   target?: '17' | '18' | '19'
+  /**
+   * Analyze and report diagnostics only; emit no transformed code.
+   *
+   * @default false
+   */
+  noEmit?: boolean
+  /** @default 'client' */
+  outputMode?: 'client' | 'ssr' | 'lint'
+  /**
+   * Compile even functions marked with the `"use no memo"` / `"use no forget"`
+   * opt-out directives.
+   *
+   * @default false
+   */
+  ignoreUseNoForget?: boolean
+  /**
+   * Treat Flow suppression comments as opt-outs.
+   *
+   * @default true
+   */
+  flowSuppressions?: boolean
+  /**
+   * Enable `react-native-reanimated` support.
+   *
+   * @default false
+   */
+  enableReanimated?: boolean
+  /**
+   * Development mode (extra validation / instrumentation).
+   *
+   * @default false
+   */
+  isDev?: boolean
+  /** Source file name, used for the fast-refresh hash and in diagnostics. */
+  filename?: string
+  /** ESLint rules whose suppressions opt a function out of compilation. */
+  eslintSuppressionRules?: Array<string>
+  /** Extra directives that opt a function out of compilation. */
+  customOptOutDirectives?: Array<string>
+  /** Also emit a gated (feature-flagged) version of each compiled function. */
+  gating?: ReactCompilerGating
+  /** Dynamically-gated compilation. */
+  dynamicGating?: ReactCompilerDynamicGating
 }
 
 export interface ReactRefreshOptions {
@@ -534,17 +594,18 @@ export interface TransformOptions {
   /** Decorator plugin */
   decorator?: DecoratorOptions
   /**
+   * Enable the experimental [React Compiler](https://github.com/facebook/react/pull/36173).
+   *
+   * `true` enables it with default options; an object enables it with the
+   * given options; `false` or omitted disables it. When enabled, the compiler
+   * runs as the first transform and memoizes React components and hooks.
+   */
+  reactCompiler?: boolean | ReactCompilerOptions
+  /**
    * Third-party plugins to use.
    * @see {@link https://oxc.rs/docs/guide/usage/transformer/plugins}
    */
   plugins?: PluginsOptions
-  /**
-   * Enable the experimental [React Compiler](https://github.com/facebook/react/pull/36173).
-   *
-   * When set, the compiler runs as the first transform and memoizes React
-   * components and hooks. Omit (or leave `undefined`) to disable it.
-   */
-  reactCompiler?: ReactCompilerOptions
 }
 
 export interface TransformResult {
