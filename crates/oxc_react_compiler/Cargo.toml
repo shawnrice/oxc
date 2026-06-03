@@ -58,3 +58,10 @@ disallowed_types = "allow" # upstream uses std HashMap / HashSet
 collapsible_if = "allow"
 needless_return = "allow"
 unnecessary_unwrap = "allow"
+
+# The vendored modules' doc comments reference types like `Vec<PatternLike>`
+# without backticks; relax rustdoc for them rather than editing upstream code.
+[lints.rustdoc]
+broken_intra_doc_links = "allow"
+invalid_html_tags = "allow"
+bare_urls = "allow"
