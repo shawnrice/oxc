@@ -32,11 +32,7 @@ pub fn convert_program(program: &oxc::Program, source_text: &str) -> File {
         body.push(ctx.convert_statement(stmt));
     }
 
-    let directives = program
-        .directives
-        .iter()
-        .map(|d| ctx.convert_directive(d))
-        .collect();
+    let directives = program.directives.iter().map(|d| ctx.convert_directive(d)).collect();
 
     let source_type = match program.source_type.is_module() {
         true => SourceType::Module,
@@ -74,10 +70,7 @@ impl<'a> ConvertCtx<'a> {
                 line_offsets.push((i + 1) as u32);
             }
         }
-        Self {
-            source_text,
-            line_offsets,
-        }
+        Self { source_text, line_offsets }
     }
 
     fn make_base_node(&self, span: Span) -> BaseNode {
@@ -101,11 +94,7 @@ impl<'a> ConvertCtx<'a> {
             Err(idx) => idx.saturating_sub(1),
         };
         let line_start = self.line_offsets[line_idx];
-        Position {
-            line: (line_idx + 1) as u32,
-            column: offset - line_start,
-            index: Some(offset),
-        }
+        Position { line: (line_idx + 1) as u32, column: offset - line_start, index: Some(offset) }
     }
 
     fn source_location(&self, span: Span) -> SourceLocation {
@@ -132,20 +121,13 @@ impl<'a> ConvertCtx<'a> {
                     }
                     oxc::CommentKind::SingleLineBlock | oxc::CommentKind::MultiLineBlock => {
                         // Strip leading /* and trailing */
-                        let stripped = raw
-                            .strip_prefix("/*")
-                            .unwrap_or(raw)
-                            .strip_suffix("*/")
-                            .unwrap_or(raw);
+                        let stripped =
+                            raw.strip_prefix("/*").unwrap_or(raw).strip_suffix("*/").unwrap_or(raw);
                         stripped.trim().to_string()
                     }
                 };
-                let comment_data = CommentData {
-                    value,
-                    start: base.start,
-                    end: base.end,
-                    loc: base.loc.clone(),
-                };
+                let comment_data =
+                    CommentData { value, start: base.start, end: base.end, loc: base.loc.clone() };
                 match comment.kind {
                     oxc::CommentKind::Line => Comment::CommentLine(comment_data),
                     oxc::CommentKind::SingleLineBlock | oxc::CommentKind::MultiLineBlock => {
@@ -212,9 +194,9 @@ impl<'a> ConvertCtx<'a> {
             oxc::Statement::ExpressionStatement(s) => {
                 Statement::ExpressionStatement(self.convert_expression_statement(s))
             }
-            oxc::Statement::EmptyStatement(s) => Statement::EmptyStatement(EmptyStatement {
-                base: self.make_base_node(s.span),
-            }),
+            oxc::Statement::EmptyStatement(s) => {
+                Statement::EmptyStatement(EmptyStatement { base: self.make_base_node(s.span) })
+            }
             oxc::Statement::DebuggerStatement(s) => {
                 Statement::DebuggerStatement(DebuggerStatement {
                     base: self.make_base_node(s.span),
@@ -276,25 +258,14 @@ impl<'a> ConvertCtx<'a> {
 
     fn convert_block_statement(&self, block: &oxc::BlockStatement) -> BlockStatement {
         let base = self.make_base_node(block.span);
-        let body = block
-            .body
-            .iter()
-            .map(|s| self.convert_statement(s))
-            .collect();
-        BlockStatement {
-            base,
-            body,
-            directives: vec![],
-        }
+        let body = block.body.iter().map(|s| self.convert_statement(s)).collect();
+        BlockStatement { base, body, directives: vec![] }
     }
 
     fn convert_return_statement(&self, ret: &oxc::ReturnStatement) -> ReturnStatement {
         ReturnStatement {
             base: self.make_base_node(ret.span),
-            argument: ret
-                .argument
-                .as_ref()
-                .map(|e| Box::new(self.convert_expression(e))),
+            argument: ret.argument.as_ref().map(|e| Box::new(self.convert_expression(e))),
         }
     }
 
@@ -303,10 +274,7 @@ impl<'a> ConvertCtx<'a> {
             base: self.make_base_node(if_stmt.span),
             test: Box::new(self.convert_expression(&if_stmt.test)),
             consequent: Box::new(self.convert_statement(&if_stmt.consequent)),
-            alternate: if_stmt
-                .alternate
-                .as_ref()
-                .map(|a| Box::new(self.convert_statement(a))),
+            alternate: if_stmt.alternate.as_ref().map(|a| Box::new(self.convert_statement(a))),
         }
     }
 
@@ -321,14 +289,8 @@ impl<'a> ConvertCtx<'a> {
                     _ => ForInit::Expression(Box::new(self.convert_expression_like(init))),
                 })
             }),
-            test: for_stmt
-                .test
-                .as_ref()
-                .map(|t| Box::new(self.convert_expression(t))),
-            update: for_stmt
-                .update
-                .as_ref()
-                .map(|u| Box::new(self.convert_expression(u))),
+            test: for_stmt.test.as_ref().map(|t| Box::new(self.convert_expression(t))),
+            update: for_stmt.update.as_ref().map(|u| Box::new(self.convert_expression(u))),
             body: Box::new(self.convert_statement(&for_stmt.body)),
         }
     }
@@ -439,26 +401,15 @@ impl<'a> ConvertCtx<'a> {
         SwitchStatement {
             base: self.make_base_node(switch.span),
             discriminant: Box::new(self.convert_expression(&switch.discriminant)),
-            cases: switch
-                .cases
-                .iter()
-                .map(|c| self.convert_switch_case(c))
-                .collect(),
+            cases: switch.cases.iter().map(|c| self.convert_switch_case(c)).collect(),
         }
     }
 
     fn convert_switch_case(&self, case: &oxc::SwitchCase) -> SwitchCase {
         SwitchCase {
             base: self.make_base_node(case.span),
-            test: case
-                .test
-                .as_ref()
-                .map(|t| Box::new(self.convert_expression(t))),
-            consequent: case
-                .consequent
-                .iter()
-                .map(|s| self.convert_statement(s))
-                .collect(),
+            test: case.test.as_ref().map(|t| Box::new(self.convert_expression(t))),
+            consequent: case.consequent.iter().map(|s| self.convert_statement(s)).collect(),
         }
     }
 
@@ -473,24 +424,15 @@ impl<'a> ConvertCtx<'a> {
         TryStatement {
             base: self.make_base_node(try_stmt.span),
             block: self.convert_block_statement(&try_stmt.block),
-            handler: try_stmt
-                .handler
-                .as_ref()
-                .map(|h| self.convert_catch_clause(h)),
-            finalizer: try_stmt
-                .finalizer
-                .as_ref()
-                .map(|f| self.convert_block_statement(f)),
+            handler: try_stmt.handler.as_ref().map(|h| self.convert_catch_clause(h)),
+            finalizer: try_stmt.finalizer.as_ref().map(|f| self.convert_block_statement(f)),
         }
     }
 
     fn convert_catch_clause(&self, catch: &oxc::CatchClause) -> CatchClause {
         CatchClause {
             base: self.make_base_node(catch.span),
-            param: catch
-                .param
-                .as_ref()
-                .map(|p| self.convert_binding_pattern(&p.pattern)),
+            param: catch.param.as_ref().map(|p| self.convert_binding_pattern(&p.pattern)),
             body: self.convert_block_statement(&catch.body),
         }
     }
@@ -505,10 +447,7 @@ impl<'a> ConvertCtx<'a> {
     fn convert_continue_statement(&self, cont: &oxc::ContinueStatement) -> ContinueStatement {
         ContinueStatement {
             base: self.make_base_node(cont.span),
-            label: cont
-                .label
-                .as_ref()
-                .map(|l| self.convert_label_identifier(l)),
+            label: cont.label.as_ref().map(|l| self.convert_label_identifier(l)),
         }
     }
 
@@ -567,34 +506,21 @@ impl<'a> ConvertCtx<'a> {
         VariableDeclarator {
             base: self.make_base_node(declarator.span),
             id: self.convert_binding_pattern(&declarator.id),
-            init: declarator
-                .init
-                .as_ref()
-                .map(|i| Box::new(self.convert_expression(i))),
-            definite: if declarator.definite {
-                Some(true)
-            } else {
-                None
-            },
+            init: declarator.init.as_ref().map(|i| Box::new(self.convert_expression(i))),
+            definite: if declarator.definite { Some(true) } else { None },
         }
     }
 
     fn convert_function_declaration(&self, func: &oxc::Function) -> FunctionDeclaration {
         FunctionDeclaration {
             base: self.make_base_node(func.span),
-            id: func
-                .id
-                .as_ref()
-                .map(|id| self.convert_binding_identifier(id)),
+            id: func.id.as_ref().map(|id| self.convert_binding_identifier(id)),
             params: self.convert_formal_parameters(&func.params),
             body: self.convert_function_body(func.body.as_ref().unwrap()),
             generator: func.generator,
             is_async: func.r#async,
             declare: if func.declare { Some(true) } else { None },
-            return_type: func
-                .return_type
-                .as_ref()
-                .map(|_t| Box::new(serde_json::Value::Null)),
+            return_type: func.return_type.as_ref().map(|_t| Box::new(serde_json::Value::Null)),
             type_parameters: func
                 .type_parameters
                 .as_ref()
@@ -608,46 +534,23 @@ impl<'a> ConvertCtx<'a> {
     fn convert_class_declaration(&self, class: &oxc::Class) -> ClassDeclaration {
         ClassDeclaration {
             base: self.make_base_node(class.span),
-            id: class
-                .id
-                .as_ref()
-                .map(|id| self.convert_binding_identifier(id)),
-            super_class: class
-                .super_class
-                .as_ref()
-                .map(|s| Box::new(self.convert_expression(s))),
+            id: class.id.as_ref().map(|id| self.convert_binding_identifier(id)),
+            super_class: class.super_class.as_ref().map(|s| Box::new(self.convert_expression(s))),
             body: ClassBody {
                 base: self.make_base_node(class.body.span),
-                body: class
-                    .body
-                    .body
-                    .iter()
-                    .map(|_item| serde_json::Value::Null)
-                    .collect(),
+                body: class.body.body.iter().map(|_item| serde_json::Value::Null).collect(),
             },
             decorators: if class.decorators.is_empty() {
                 None
             } else {
-                Some(
-                    class
-                        .decorators
-                        .iter()
-                        .map(|_d| serde_json::Value::Null)
-                        .collect(),
-                )
+                Some(class.decorators.iter().map(|_d| serde_json::Value::Null).collect())
             },
             is_abstract: if class.r#abstract { Some(true) } else { None },
             declare: if class.declare { Some(true) } else { None },
             implements: if class.implements.is_empty() {
                 None
             } else {
-                Some(
-                    class
-                        .implements
-                        .iter()
-                        .map(|_i| serde_json::Value::Null)
-                        .collect(),
-                )
+                Some(class.implements.iter().map(|_i| serde_json::Value::Null).collect())
             },
             super_type_parameters: class
                 .super_type_arguments
@@ -716,18 +619,18 @@ impl<'a> ConvertCtx<'a> {
                     },
                 }))
             }
-            oxc::ImportDeclarationSpecifier::ImportDefaultSpecifier(s) => Some(
-                ImportSpecifier::ImportDefaultSpecifier(ImportDefaultSpecifierData {
+            oxc::ImportDeclarationSpecifier::ImportDefaultSpecifier(s) => {
+                Some(ImportSpecifier::ImportDefaultSpecifier(ImportDefaultSpecifierData {
                     base: self.make_base_node(s.span),
                     local: self.convert_binding_identifier(&s.local),
-                }),
-            ),
-            oxc::ImportDeclarationSpecifier::ImportNamespaceSpecifier(s) => Some(
-                ImportSpecifier::ImportNamespaceSpecifier(ImportNamespaceSpecifierData {
+                }))
+            }
+            oxc::ImportDeclarationSpecifier::ImportNamespaceSpecifier(s) => {
+                Some(ImportSpecifier::ImportNamespaceSpecifier(ImportNamespaceSpecifierData {
                     base: self.make_base_node(s.span),
                     local: self.convert_binding_identifier(&s.local),
-                }),
-            ),
+                }))
+            }
         }
     }
 
@@ -966,13 +869,7 @@ impl<'a> ConvertCtx<'a> {
             extends: if interface.extends.is_empty() {
                 None
             } else {
-                Some(
-                    interface
-                        .extends
-                        .iter()
-                        .map(|_e| serde_json::Value::Null)
-                        .collect(),
-                )
+                Some(interface.extends.iter().map(|_e| serde_json::Value::Null).collect())
             },
             declare: if interface.declare { Some(true) } else { None },
         }
@@ -982,12 +879,7 @@ impl<'a> ConvertCtx<'a> {
         TSEnumDeclaration {
             base: self.make_base_node(ts_enum.span),
             id: self.convert_binding_identifier(&ts_enum.id),
-            members: ts_enum
-                .body
-                .members
-                .iter()
-                .map(|_m| serde_json::Value::Null)
-                .collect(),
+            members: ts_enum.body.members.iter().map(|_m| serde_json::Value::Null).collect(),
             declare: if ts_enum.declare { Some(true) } else { None },
             is_const: if ts_enum.r#const { Some(true) } else { None },
         }
@@ -1012,9 +904,9 @@ impl<'a> ConvertCtx<'a> {
                 base: self.make_base_node(b.span),
                 value: b.value,
             }),
-            oxc::Expression::NullLiteral(n) => Expression::NullLiteral(NullLiteral {
-                base: self.make_base_node(n.span),
-            }),
+            oxc::Expression::NullLiteral(n) => {
+                Expression::NullLiteral(NullLiteral { base: self.make_base_node(n.span) })
+            }
             oxc::Expression::NumericLiteral(n) => Expression::NumericLiteral(NumericLiteral {
                 base: self.make_base_node(n.span),
                 value: n.value,
@@ -1042,9 +934,9 @@ impl<'a> ConvertCtx<'a> {
             oxc::Expression::MetaProperty(m) => {
                 Expression::MetaProperty(self.convert_meta_property(m))
             }
-            oxc::Expression::Super(s) => Expression::Super(Super {
-                base: self.make_base_node(s.span),
-            }),
+            oxc::Expression::Super(s) => {
+                Expression::Super(Super { base: self.make_base_node(s.span) })
+            }
             oxc::Expression::ArrayExpression(a) => {
                 Expression::ArrayExpression(self.convert_array_expression(a))
             }
@@ -1109,9 +1001,9 @@ impl<'a> ConvertCtx<'a> {
             oxc::Expression::TaggedTemplateExpression(t) => {
                 Expression::TaggedTemplateExpression(self.convert_tagged_template_expression(t))
             }
-            oxc::Expression::ThisExpression(t) => Expression::ThisExpression(ThisExpression {
-                base: self.make_base_node(t.span),
-            }),
+            oxc::Expression::ThisExpression(t) => {
+                Expression::ThisExpression(ThisExpression { base: self.make_base_node(t.span) })
+            }
             oxc::Expression::UnaryExpression(u) => {
                 Expression::UnaryExpression(self.convert_unary_expression(u))
             }
@@ -1189,16 +1081,8 @@ impl<'a> ConvertCtx<'a> {
     fn convert_template_literal(&self, template: &oxc::TemplateLiteral) -> TemplateLiteral {
         TemplateLiteral {
             base: self.make_base_node(template.span),
-            quasis: template
-                .quasis
-                .iter()
-                .map(|q| self.convert_template_element(q))
-                .collect(),
-            expressions: template
-                .expressions
-                .iter()
-                .map(|e| self.convert_expression(e))
-                .collect(),
+            quasis: template.quasis.iter().map(|q| self.convert_template_element(q)).collect(),
+            expressions: template.expressions.iter().map(|e| self.convert_expression(e)).collect(),
         }
     }
 
@@ -1264,10 +1148,7 @@ impl<'a> ConvertCtx<'a> {
             generator: false,
             is_async: arrow.r#async,
             expression: if arrow.expression { Some(true) } else { None },
-            return_type: arrow
-                .return_type
-                .as_ref()
-                .map(|_t| Box::new(serde_json::Value::Null)),
+            return_type: arrow.return_type.as_ref().map(|_t| Box::new(serde_json::Value::Null)),
             type_parameters: arrow
                 .type_parameters
                 .as_ref()
@@ -1599,11 +1480,7 @@ impl<'a> ConvertCtx<'a> {
         CallExpression {
             base: self.make_base_node(call.span),
             callee: Box::new(self.convert_expression(&call.callee)),
-            arguments: call
-                .arguments
-                .iter()
-                .map(|a| self.convert_argument(a))
-                .collect(),
+            arguments: call.arguments.iter().map(|a| self.convert_argument(a)).collect(),
             type_parameters: call
                 .type_arguments
                 .as_ref()
@@ -1630,11 +1507,7 @@ impl<'a> ConvertCtx<'a> {
                 Expression::OptionalCallExpression(OptionalCallExpression {
                     base: self.make_base_node(c.span),
                     callee: Box::new(self.convert_expression_in_chain(&c.callee)),
-                    arguments: c
-                        .arguments
-                        .iter()
-                        .map(|a| self.convert_argument(a))
-                        .collect(),
+                    arguments: c.arguments.iter().map(|a| self.convert_argument(a)).collect(),
                     optional: c.optional,
                     type_parameters: c
                         .type_arguments
@@ -1719,11 +1592,7 @@ impl<'a> ConvertCtx<'a> {
                 Expression::OptionalCallExpression(OptionalCallExpression {
                     base: self.make_base_node(c.span),
                     callee: Box::new(self.convert_expression_in_chain(&c.callee)),
-                    arguments: c
-                        .arguments
-                        .iter()
-                        .map(|a| self.convert_argument(a))
-                        .collect(),
+                    arguments: c.arguments.iter().map(|a| self.convert_argument(a)).collect(),
                     optional: true,
                     type_parameters: c
                         .type_arguments
@@ -1761,11 +1630,7 @@ impl<'a> ConvertCtx<'a> {
                 Expression::OptionalCallExpression(OptionalCallExpression {
                     base: self.make_base_node(c.span),
                     callee: Box::new(self.convert_expression_in_chain(&c.callee)),
-                    arguments: c
-                        .arguments
-                        .iter()
-                        .map(|a| self.convert_argument(a))
-                        .collect(),
+                    arguments: c.arguments.iter().map(|a| self.convert_argument(a)).collect(),
                     optional: false,
                     type_parameters: c
                         .type_arguments
@@ -1807,44 +1672,21 @@ impl<'a> ConvertCtx<'a> {
     fn convert_class_expression(&self, class: &oxc::Class) -> ClassExpression {
         ClassExpression {
             base: self.make_base_node(class.span),
-            id: class
-                .id
-                .as_ref()
-                .map(|id| self.convert_binding_identifier(id)),
-            super_class: class
-                .super_class
-                .as_ref()
-                .map(|s| Box::new(self.convert_expression(s))),
+            id: class.id.as_ref().map(|id| self.convert_binding_identifier(id)),
+            super_class: class.super_class.as_ref().map(|s| Box::new(self.convert_expression(s))),
             body: ClassBody {
                 base: self.make_base_node(class.body.span),
-                body: class
-                    .body
-                    .body
-                    .iter()
-                    .map(|_item| serde_json::Value::Null)
-                    .collect(),
+                body: class.body.body.iter().map(|_item| serde_json::Value::Null).collect(),
             },
             decorators: if class.decorators.is_empty() {
                 None
             } else {
-                Some(
-                    class
-                        .decorators
-                        .iter()
-                        .map(|_d| serde_json::Value::Null)
-                        .collect(),
-                )
+                Some(class.decorators.iter().map(|_d| serde_json::Value::Null).collect())
             },
             implements: if class.implements.is_empty() {
                 None
             } else {
-                Some(
-                    class
-                        .implements
-                        .iter()
-                        .map(|_i| serde_json::Value::Null)
-                        .collect(),
-                )
+                Some(class.implements.iter().map(|_i| serde_json::Value::Null).collect())
             },
             super_type_parameters: class
                 .super_type_arguments
@@ -1872,18 +1714,12 @@ impl<'a> ConvertCtx<'a> {
     fn convert_function_expression(&self, func: &oxc::Function) -> FunctionExpression {
         FunctionExpression {
             base: self.make_base_node(func.span),
-            id: func
-                .id
-                .as_ref()
-                .map(|id| self.convert_binding_identifier(id)),
+            id: func.id.as_ref().map(|id| self.convert_binding_identifier(id)),
             params: self.convert_formal_parameters(&func.params),
             body: self.convert_function_body(func.body.as_ref().unwrap()),
             generator: func.generator,
             is_async: func.r#async,
-            return_type: func
-                .return_type
-                .as_ref()
-                .map(|_t| Box::new(serde_json::Value::Null)),
+            return_type: func.return_type.as_ref().map(|_t| Box::new(serde_json::Value::Null)),
             type_parameters: func
                 .type_parameters
                 .as_ref()
@@ -1912,11 +1748,7 @@ impl<'a> ConvertCtx<'a> {
         NewExpression {
             base: self.make_base_node(new.span),
             callee: Box::new(self.convert_expression(&new.callee)),
-            arguments: new
-                .arguments
-                .iter()
-                .map(|a| self.convert_argument(a))
-                .collect(),
+            arguments: new.arguments.iter().map(|a| self.convert_argument(a)).collect(),
             type_parameters: new
                 .type_arguments
                 .as_ref()
@@ -1969,10 +1801,7 @@ impl<'a> ConvertCtx<'a> {
                             params,
                             body,
                             computed: p.computed,
-                            id: func
-                                .id
-                                .as_ref()
-                                .map(|id| self.convert_binding_identifier(id)),
+                            id: func.id.as_ref().map(|id| self.convert_binding_identifier(id)),
                             generator: func.generator,
                             is_async: func.r#async,
                             decorators: None,
@@ -2042,11 +1871,7 @@ impl<'a> ConvertCtx<'a> {
     fn convert_sequence_expression(&self, seq: &oxc::SequenceExpression) -> SequenceExpression {
         SequenceExpression {
             base: self.make_base_node(seq.span),
-            expressions: seq
-                .expressions
-                .iter()
-                .map(|e| self.convert_expression(e))
-                .collect(),
+            expressions: seq.expressions.iter().map(|e| self.convert_expression(e)).collect(),
         }
     }
 
@@ -2171,10 +1996,7 @@ impl<'a> ConvertCtx<'a> {
     fn convert_yield_expression(&self, yield_expr: &oxc::YieldExpression) -> YieldExpression {
         YieldExpression {
             base: self.make_base_node(yield_expr.span),
-            argument: yield_expr
-                .argument
-                .as_ref()
-                .map(|a| Box::new(self.convert_expression(a))),
+            argument: yield_expr.argument.as_ref().map(|a| Box::new(self.convert_expression(a))),
             delegate: yield_expr.delegate,
         }
     }
@@ -2235,11 +2057,7 @@ impl<'a> ConvertCtx<'a> {
                 .closing_element
                 .as_ref()
                 .map(|c| self.convert_jsx_closing_element(c)),
-            children: jsx
-                .children
-                .iter()
-                .map(|c| self.convert_jsx_child(c))
-                .collect(),
+            children: jsx.children.iter().map(|c| self.convert_jsx_child(c)).collect(),
             self_closing: None,
         }
     }
@@ -2253,11 +2071,7 @@ impl<'a> ConvertCtx<'a> {
             closing_fragment: JSXClosingFragment {
                 base: self.make_base_node(jsx.closing_fragment.span),
             },
-            children: jsx
-                .children
-                .iter()
-                .map(|c| self.convert_jsx_child(c))
-                .collect(),
+            children: jsx.children.iter().map(|c| self.convert_jsx_child(c)).collect(),
         }
     }
 
@@ -2379,10 +2193,7 @@ impl<'a> ConvertCtx<'a> {
         JSXAttribute {
             base: self.make_base_node(attr.span),
             name: self.convert_jsx_attribute_name(&attr.name),
-            value: attr
-                .value
-                .as_ref()
-                .map(|v| self.convert_jsx_attribute_value(v)),
+            value: attr.value.as_ref().map(|v| self.convert_jsx_attribute_value(v)),
         }
     }
 
@@ -2527,17 +2338,13 @@ impl<'a> ConvertCtx<'a> {
     }
 
     fn convert_object_pattern(&self, obj: &oxc::ObjectPattern) -> ObjectPattern {
-        let mut properties: Vec<ObjectPatternProperty> = obj
-            .properties
-            .iter()
-            .map(|p| self.convert_binding_property(p))
-            .collect();
+        let mut properties: Vec<ObjectPatternProperty> =
+            obj.properties.iter().map(|p| self.convert_binding_property(p)).collect();
 
         // Handle rest element (separate field in OXC v0.121)
         if let Some(rest) = &obj.rest {
-            properties.push(ObjectPatternProperty::RestElement(
-                self.convert_binding_rest_element(rest),
-            ));
+            properties
+                .push(ObjectPatternProperty::RestElement(self.convert_binding_rest_element(rest)));
         }
 
         ObjectPattern {
@@ -2570,9 +2377,7 @@ impl<'a> ConvertCtx<'a> {
 
         // Handle rest element (separate field in OXC v0.121)
         if let Some(rest) = &arr.rest {
-            elements.push(Some(PatternLike::RestElement(
-                self.convert_binding_rest_element(rest),
-            )));
+            elements.push(Some(PatternLike::RestElement(self.convert_binding_rest_element(rest))));
         }
 
         ArrayPattern {
@@ -2606,11 +2411,8 @@ impl<'a> ConvertCtx<'a> {
     /// OXC stores rest parameters separately from items, but Babel includes them
     /// in the same params array.
     fn convert_formal_parameters(&self, params: &oxc::FormalParameters) -> Vec<PatternLike> {
-        let mut result: Vec<PatternLike> = params
-            .items
-            .iter()
-            .map(|p| self.convert_formal_parameter(p))
-            .collect();
+        let mut result: Vec<PatternLike> =
+            params.items.iter().map(|p| self.convert_formal_parameter(p)).collect();
         if let Some(rest) = &params.rest {
             result.push(PatternLike::RestElement(RestElement {
                 base: self.make_base_node(rest.rest.span),
@@ -2675,16 +2477,8 @@ impl<'a> ConvertCtx<'a> {
     fn convert_function_body(&self, body: &oxc::FunctionBody) -> BlockStatement {
         BlockStatement {
             base: self.make_base_node(body.span),
-            body: body
-                .statements
-                .iter()
-                .map(|s| self.convert_statement(s))
-                .collect(),
-            directives: body
-                .directives
-                .iter()
-                .map(|d| self.convert_directive(d))
-                .collect(),
+            body: body.statements.iter().map(|s| self.convert_statement(s)).collect(),
+            directives: body.directives.iter().map(|d| self.convert_directive(d)).collect(),
         }
     }
 

@@ -54,7 +54,7 @@ serde_json = { workspace = true, features = ["raw_value"] }
 # lints (`todo!`/`unimplemented!`/...) off the vendored code while clippy's default
 # correctness and perf checks still apply.
 [lints.clippy]
-disallowed_types = "allow"   # upstream uses std HashMap / HashSet
+disallowed_types = "allow" # upstream uses std HashMap / HashSet
 collapsible_if = "allow"
 needless_return = "allow"
 unnecessary_unwrap = "allow"

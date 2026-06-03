@@ -21,11 +21,7 @@ pub fn compile_result_to_diagnostics(result: &CompileResult) -> Vec<OxcDiagnosti
                 }
             }
         }
-        CompileResult::Error {
-            error,
-            events,
-            ..
-        } => {
+        CompileResult::Error { error, events, .. } => {
             // Add the main error
             diagnostics.push(error_info_to_diagnostic(error));
 
@@ -41,7 +37,9 @@ pub fn compile_result_to_diagnostics(result: &CompileResult) -> Vec<OxcDiagnosti
     diagnostics
 }
 
-fn error_info_to_diagnostic(error: &react_compiler::entrypoint::compile_result::CompilerErrorInfo) -> OxcDiagnostic {
+fn error_info_to_diagnostic(
+    error: &react_compiler::entrypoint::compile_result::CompilerErrorInfo,
+) -> OxcDiagnostic {
     let message = format!("[ReactCompiler] {}", error.reason);
     let mut diag = OxcDiagnostic::error(message);
 
@@ -54,19 +52,12 @@ fn error_info_to_diagnostic(error: &react_compiler::entrypoint::compile_result::
 
 fn error_detail_to_diagnostic(detail: &CompilerErrorDetailInfo, is_error: bool) -> OxcDiagnostic {
     let message = if let Some(description) = &detail.description {
-        format!(
-            "[ReactCompiler] {}: {}. {}",
-            detail.category, detail.reason, description
-        )
+        format!("[ReactCompiler] {}: {}. {}", detail.category, detail.reason, description)
     } else {
         format!("[ReactCompiler] {}: {}", detail.category, detail.reason)
     };
 
-    if is_error {
-        OxcDiagnostic::error(message)
-    } else {
-        OxcDiagnostic::warn(message)
-    }
+    if is_error { OxcDiagnostic::error(message) } else { OxcDiagnostic::warn(message) }
 }
 
 fn event_to_diagnostic(event: &LoggerEvent) -> Option<OxcDiagnostic> {
@@ -78,16 +69,10 @@ fn event_to_diagnostic(event: &LoggerEvent) -> Option<OxcDiagnostic> {
             Some(error_detail_to_diagnostic(detail, false))
         }
         LoggerEvent::CompileUnexpectedThrow { data, .. } => {
-            Some(OxcDiagnostic::error(format!(
-                "[ReactCompiler] Unexpected error: {}",
-                data
-            )))
+            Some(OxcDiagnostic::error(format!("[ReactCompiler] Unexpected error: {}", data)))
         }
         LoggerEvent::PipelineError { data, .. } => {
-            Some(OxcDiagnostic::error(format!(
-                "[ReactCompiler] Pipeline error: {}",
-                data
-            )))
+            Some(OxcDiagnostic::error(format!("[ReactCompiler] Pipeline error: {}", data)))
         }
     }
 }

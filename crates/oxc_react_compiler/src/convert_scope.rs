@@ -162,18 +162,14 @@ pub fn convert_scope_info(semantic: &Semantic, _program: &Program) -> ScopeInfo 
                     if let Some(symbol_id) = id.symbol_id.get() {
                         if let Some(&binding_id) = symbol_to_binding.get(&symbol_id) {
                             let export_start = export.span().start;
-                            ref_node_id_to_binding
-                                .entry(export_start)
-                                .or_insert(binding_id);
+                            ref_node_id_to_binding.entry(export_start).or_insert(binding_id);
                         }
                     } else {
                         // Fallback: look up binding by name
                         for (sym_id, &bind_id) in &symbol_to_binding {
                             if scoping.symbol_name(*sym_id) == name {
                                 let export_start = export.span().start;
-                                ref_node_id_to_binding
-                                    .entry(export_start)
-                                    .or_insert(bind_id);
+                                ref_node_id_to_binding.entry(export_start).or_insert(bind_id);
                                 break;
                             }
                         }
@@ -195,9 +191,7 @@ pub fn convert_scope_info(semantic: &Semantic, _program: &Program) -> ScopeInfo 
                     let name = id.name.as_str();
                     if let Some(symbol_id) = id.symbol_id.get() {
                         if let Some(&binding_id) = symbol_to_binding.get(&symbol_id) {
-                            ref_node_id_to_binding
-                                .entry(export.span().start)
-                                .or_insert(binding_id);
+                            ref_node_id_to_binding.entry(export.span().start).or_insert(binding_id);
                         }
                     } else {
                         // Fallback: look up binding by name
@@ -373,29 +367,22 @@ fn find_binding_identifier_start(kind: AstKind, name: &str) -> Option<u32> {
             }
         }
         AstKind::VariableDeclarator(decl) => find_identifier_in_pattern(&decl.id, name),
-        AstKind::Function(func) => func.id.as_ref().and_then(|id| {
-            if id.name.as_str() == name {
-                Some(id.span.start)
-            } else {
-                None
-            }
-        }),
-        AstKind::Class(class) => class.id.as_ref().and_then(|id| {
-            if id.name.as_str() == name {
-                Some(id.span.start)
-            } else {
-                None
-            }
-        }),
+        AstKind::Function(func) => func
+            .id
+            .as_ref()
+            .and_then(|id| if id.name.as_str() == name { Some(id.span.start) } else { None }),
+        AstKind::Class(class) => class
+            .id
+            .as_ref()
+            .and_then(|id| if id.name.as_str() == name { Some(id.span.start) } else { None }),
         AstKind::FormalParameter(param) => find_identifier_in_pattern(&param.pattern, name),
         AstKind::FormalParameterRest(rest) => find_identifier_in_pattern(&rest.rest.argument, name),
         AstKind::ImportSpecifier(spec) => Some(spec.local.span.start),
         AstKind::ImportDefaultSpecifier(spec) => Some(spec.local.span.start),
         AstKind::ImportNamespaceSpecifier(spec) => Some(spec.local.span.start),
-        AstKind::CatchClause(catch) => catch
-            .param
-            .as_ref()
-            .and_then(|p| find_identifier_in_pattern(&p.pattern, name)),
+        AstKind::CatchClause(catch) => {
+            catch.param.as_ref().and_then(|p| find_identifier_in_pattern(&p.pattern, name))
+        }
         AstKind::CatchParameter(param) => find_identifier_in_pattern(&param.pattern, name),
         AstKind::TSTypeAliasDeclaration(decl) => {
             if decl.id.name.as_str() == name {
@@ -411,16 +398,14 @@ fn find_binding_identifier_start(kind: AstKind, name: &str) -> Option<u32> {
                 None
             }
         }
-        AstKind::TSModuleDeclaration(decl) => match &decl.id {
-            oxc_ast::ast::TSModuleDeclarationName::Identifier(id) => {
-                if id.name.as_str() == name {
-                    Some(id.span.start)
-                } else {
-                    None
+        AstKind::TSModuleDeclaration(decl) => {
+            match &decl.id {
+                oxc_ast::ast::TSModuleDeclarationName::Identifier(id) => {
+                    if id.name.as_str() == name { Some(id.span.start) } else { None }
                 }
+                _ => None,
             }
-            _ => None,
-        },
+        }
         _ => None,
     }
 }

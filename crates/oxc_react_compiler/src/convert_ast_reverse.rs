@@ -80,11 +80,7 @@ struct ReverseCtx<'a> {
 
 impl<'a> ReverseCtx<'a> {
     fn new(allocator: &'a Allocator, source_text: Option<String>) -> Self {
-        Self {
-            allocator,
-            builder: oxc_ast::AstBuilder::new(allocator),
-            source_text,
-        }
+        Self { allocator, builder: oxc_ast::AstBuilder::new(allocator), source_text }
     }
 
     /// Extract a statement from the original source text using the base node's
@@ -159,16 +155,12 @@ impl<'a> ReverseCtx<'a> {
         &self,
         directives: &[Directive],
     ) -> oxc_allocator::Vec<'a, oxc::Directive<'a>> {
-        self.builder
-            .vec_from_iter(directives.iter().map(|d| self.convert_directive(d)))
+        self.builder.vec_from_iter(directives.iter().map(|d| self.convert_directive(d)))
     }
 
     fn convert_directive(&self, d: &Directive) -> oxc::Directive<'a> {
-        let expression = self
-            .builder
-            .string_literal(SPAN, self.atom(&d.value.value), None);
-        self.builder
-            .directive(SPAN, expression, self.atom(&d.value.value))
+        let expression = self.builder.string_literal(SPAN, self.atom(&d.value.value), None);
+        self.builder.directive(SPAN, expression, self.atom(&d.value.value))
     }
 
     // ===== Statements =====
@@ -225,16 +217,15 @@ impl<'a> ReverseCtx<'a> {
 
     fn convert_statement(&self, stmt: &Statement) -> oxc::Statement<'a> {
         match stmt {
-            Statement::BlockStatement(s) => self
+            Statement::BlockStatement(s) => {
+                self.builder.statement_block(SPAN, self.convert_statement_vec(&s.body))
+            }
+            Statement::ReturnStatement(s) => self
                 .builder
-                .statement_block(SPAN, self.convert_statement_vec(&s.body)),
-            Statement::ReturnStatement(s) => self.builder.statement_return(
-                SPAN,
-                s.argument.as_ref().map(|a| self.convert_expression(a)),
-            ),
-            Statement::ExpressionStatement(s) => self
-                .builder
-                .statement_expression(SPAN, self.convert_expression(&s.expression)),
+                .statement_return(SPAN, s.argument.as_ref().map(|a| self.convert_expression(a))),
+            Statement::ExpressionStatement(s) => {
+                self.builder.statement_expression(SPAN, self.convert_expression(&s.expression))
+            }
             Statement::IfStatement(s) => self.builder.statement_if(
                 SPAN,
                 self.convert_expression(&s.test),
@@ -279,19 +270,15 @@ impl<'a> ReverseCtx<'a> {
                         self.convert_statement_vec(&c.consequent),
                     )
                 }));
-                self.builder
-                    .statement_switch(SPAN, self.convert_expression(&s.discriminant), cases)
+                self.builder.statement_switch(SPAN, self.convert_expression(&s.discriminant), cases)
             }
-            Statement::ThrowStatement(s) => self
-                .builder
-                .statement_throw(SPAN, self.convert_expression(&s.argument)),
+            Statement::ThrowStatement(s) => {
+                self.builder.statement_throw(SPAN, self.convert_expression(&s.argument))
+            }
             Statement::TryStatement(s) => {
                 let block = self.convert_block_statement(&s.block);
                 let handler = s.handler.as_ref().map(|h| self.convert_catch_clause(h));
-                let finalizer = s
-                    .finalizer
-                    .as_ref()
-                    .map(|f| self.convert_block_statement(f));
+                let finalizer = s.finalizer.as_ref().map(|f| self.convert_block_statement(f));
                 self.builder.statement_try(SPAN, block, handler, finalizer)
             }
             Statement::BreakStatement(s) => {
@@ -309,11 +296,8 @@ impl<'a> ReverseCtx<'a> {
                 self.builder.statement_continue(SPAN, label)
             }
             Statement::LabeledStatement(s) => {
-                let label = self
-                    .builder
-                    .label_identifier(SPAN, self.atom(&s.label.name));
-                self.builder
-                    .statement_labeled(SPAN, label, self.convert_statement(&s.body))
+                let label = self.builder.label_identifier(SPAN, self.atom(&s.label.name));
+                self.builder.statement_labeled(SPAN, label, self.convert_statement(&s.body))
             }
             Statement::EmptyStatement(_) => self.builder.statement_empty(SPAN),
             Statement::DebuggerStatement(_) => self.builder.statement_debugger(SPAN),
@@ -395,13 +379,11 @@ impl<'a> ReverseCtx<'a> {
         &self,
         stmts: &[Statement],
     ) -> oxc_allocator::Vec<'a, oxc::Statement<'a>> {
-        self.builder
-            .vec_from_iter(stmts.iter().map(|s| self.convert_statement(s)))
+        self.builder.vec_from_iter(stmts.iter().map(|s| self.convert_statement(s)))
     }
 
     fn convert_block_statement(&self, block: &BlockStatement) -> oxc::BlockStatement<'a> {
-        self.builder
-            .block_statement(SPAN, self.convert_statement_vec(&block.body))
+        self.builder.block_statement(SPAN, self.convert_statement_vec(&block.body))
     }
 
     fn convert_catch_clause(&self, clause: &CatchClause) -> oxc::CatchClause<'a> {
@@ -413,8 +395,7 @@ impl<'a> ReverseCtx<'a> {
                 None::<oxc_allocator::Box<'a, oxc::TSTypeAnnotation<'a>>>,
             )
         });
-        self.builder
-            .catch_clause(SPAN, param, self.convert_block_statement(&clause.body))
+        self.builder.catch_clause(SPAN, param, self.convert_block_statement(&clause.body))
     }
 
     fn convert_for_init(&self, init: &ForInit) -> oxc::ForStatementInit<'a> {
@@ -451,13 +432,10 @@ impl<'a> ReverseCtx<'a> {
             VariableDeclarationKind::Using => oxc::VariableDeclarationKind::Using,
         };
         let declarators = self.builder.vec_from_iter(
-            decl.declarations
-                .iter()
-                .map(|d| self.convert_variable_declarator(d, kind)),
+            decl.declarations.iter().map(|d| self.convert_variable_declarator(d, kind)),
         );
         let declare = decl.declare.unwrap_or(false);
-        self.builder
-            .variable_declaration(SPAN, kind, declarators, declare)
+        self.builder.variable_declaration(SPAN, kind, declarators, declare)
     }
 
     fn convert_variable_declarator(
@@ -482,12 +460,11 @@ impl<'a> ReverseCtx<'a> {
 
     fn convert_expression(&self, expr: &Expression) -> oxc::Expression<'a> {
         match expr {
-            Expression::Identifier(id) => self
-                .builder
-                .expression_identifier(SPAN, self.atom(&id.name)),
+            Expression::Identifier(id) => {
+                self.builder.expression_identifier(SPAN, self.atom(&id.name))
+            }
             Expression::StringLiteral(lit) => {
-                self.builder
-                    .expression_string_literal(SPAN, self.atom(&lit.value), None)
+                self.builder.expression_string_literal(SPAN, self.atom(&lit.value), None)
             }
             Expression::NumericLiteral(lit) => self.builder.expression_numeric_literal(
                 SPAN,
@@ -507,10 +484,8 @@ impl<'a> ReverseCtx<'a> {
             ),
             Expression::RegExpLiteral(lit) => {
                 let flags = self.parse_regexp_flags(&lit.flags);
-                let pattern = oxc::RegExpPattern {
-                    text: self.atom(&lit.pattern).into(),
-                    pattern: None,
-                };
+                let pattern =
+                    oxc::RegExpPattern { text: self.atom(&lit.pattern).into(), pattern: None };
                 let regex = oxc::RegExp { pattern, flags };
                 self.builder.expression_reg_exp_literal(SPAN, regex, None)
             }
@@ -562,8 +537,7 @@ impl<'a> ReverseCtx<'a> {
             }
             Expression::UnaryExpression(un) => {
                 let op = self.convert_unary_operator(&un.operator);
-                self.builder
-                    .expression_unary(SPAN, op, self.convert_expression(&un.argument))
+                self.builder.expression_unary(SPAN, op, self.convert_expression(&un.argument))
             }
             Expression::UpdateExpression(up) => {
                 let op = self.convert_update_operator(&up.operator);
@@ -599,9 +573,7 @@ impl<'a> ReverseCtx<'a> {
             }
             Expression::ObjectExpression(obj) => {
                 let properties = self.builder.vec_from_iter(
-                    obj.properties
-                        .iter()
-                        .map(|p| self.convert_object_expression_property(p)),
+                    obj.properties.iter().map(|p| self.convert_object_expression_property(p)),
                 );
                 self.builder.expression_object(SPAN, properties)
             }
@@ -635,9 +607,9 @@ impl<'a> ReverseCtx<'a> {
                     quasi,
                 )
             }
-            Expression::AwaitExpression(a) => self
-                .builder
-                .expression_await(SPAN, self.convert_expression(&a.argument)),
+            Expression::AwaitExpression(a) => {
+                self.builder.expression_await(SPAN, self.convert_expression(&a.argument))
+            }
             Expression::YieldExpression(y) => self.builder.expression_yield(
                 SPAN,
                 y.delegate,
@@ -650,26 +622,24 @@ impl<'a> ReverseCtx<'a> {
             }
             Expression::MetaProperty(mp) => {
                 let meta = self.builder.identifier_name(SPAN, self.atom(&mp.meta.name));
-                let property = self
-                    .builder
-                    .identifier_name(SPAN, self.atom(&mp.property.name));
+                let property = self.builder.identifier_name(SPAN, self.atom(&mp.property.name));
                 self.builder.expression_meta_property(SPAN, meta, property)
             }
             Expression::ClassExpression(c) => {
                 let class = self.convert_class_to_oxc(c, oxc::ClassType::ClassExpression);
                 oxc::Expression::ClassExpression(self.builder.alloc(class))
             }
-            Expression::PrivateName(_) => self
-                .builder
-                .expression_identifier(SPAN, self.atom("__private__")),
+            Expression::PrivateName(_) => {
+                self.builder.expression_identifier(SPAN, self.atom("__private__"))
+            }
             Expression::Super(_) => self.builder.expression_super(SPAN),
-            Expression::Import(_) => self
-                .builder
-                .expression_identifier(SPAN, self.atom("__import__")),
+            Expression::Import(_) => {
+                self.builder.expression_identifier(SPAN, self.atom("__import__"))
+            }
             Expression::ThisExpression(_) => self.builder.expression_this(SPAN),
-            Expression::ParenthesizedExpression(p) => self
-                .builder
-                .expression_parenthesized(SPAN, self.convert_expression(&p.expression)),
+            Expression::ParenthesizedExpression(p) => {
+                self.builder.expression_parenthesized(SPAN, self.convert_expression(&p.expression))
+            }
             Expression::JSXElement(el) => {
                 let element = self.convert_jsx_element(el);
                 oxc::Expression::JSXElement(self.builder.alloc(element))
@@ -681,9 +651,9 @@ impl<'a> ReverseCtx<'a> {
             // TS expressions - strip the type wrapper, keep the expression
             Expression::TSAsExpression(e) => self.convert_expression(&e.expression),
             Expression::TSSatisfiesExpression(e) => self.convert_expression(&e.expression),
-            Expression::TSNonNullExpression(e) => self
-                .builder
-                .expression_ts_non_null(SPAN, self.convert_expression(&e.expression)),
+            Expression::TSNonNullExpression(e) => {
+                self.builder.expression_ts_non_null(SPAN, self.convert_expression(&e.expression))
+            }
             Expression::TSTypeAssertion(e) => self.convert_expression(&e.expression),
             Expression::TSInstantiationExpression(e) => self.convert_expression(&e.expression),
             Expression::TypeCastExpression(e) => self.convert_expression(&e.expression),
@@ -726,18 +696,14 @@ impl<'a> ReverseCtx<'a> {
         if m.computed {
             let property = self.convert_expression(&m.property);
             oxc::Expression::ComputedMemberExpression(
-                self.builder.alloc(
-                    self.builder
-                        .computed_member_expression(SPAN, object, property, false),
-                ),
+                self.builder
+                    .alloc(self.builder.computed_member_expression(SPAN, object, property, false)),
             )
         } else {
             let prop_name = self.expression_to_identifier_name(&m.property);
             oxc::Expression::StaticMemberExpression(
-                self.builder.alloc(
-                    self.builder
-                        .static_member_expression(SPAN, object, prop_name, false),
-                ),
+                self.builder
+                    .alloc(self.builder.static_member_expression(SPAN, object, prop_name, false)),
             )
         }
     }
@@ -751,16 +717,14 @@ impl<'a> ReverseCtx<'a> {
             let property = self.convert_expression(&m.property);
             oxc::ChainElement::ComputedMemberExpression(
                 self.builder.alloc(
-                    self.builder
-                        .computed_member_expression(SPAN, object, property, m.optional),
+                    self.builder.computed_member_expression(SPAN, object, property, m.optional),
                 ),
             )
         } else {
             let prop_name = self.expression_to_identifier_name(&m.property);
             oxc::ChainElement::StaticMemberExpression(
                 self.builder.alloc(
-                    self.builder
-                        .static_member_expression(SPAN, object, prop_name, m.optional),
+                    self.builder.static_member_expression(SPAN, object, prop_name, m.optional),
                 ),
             )
         }
@@ -775,16 +739,14 @@ impl<'a> ReverseCtx<'a> {
             let property = self.convert_expression(&m.property);
             oxc::Expression::ComputedMemberExpression(
                 self.builder.alloc(
-                    self.builder
-                        .computed_member_expression(SPAN, object, property, m.optional),
+                    self.builder.computed_member_expression(SPAN, object, property, m.optional),
                 ),
             )
         } else {
             let prop_name = self.expression_to_identifier_name(&m.property);
             oxc::Expression::StaticMemberExpression(
                 self.builder.alloc(
-                    self.builder
-                        .static_member_expression(SPAN, object, prop_name, m.optional),
+                    self.builder.static_member_expression(SPAN, object, prop_name, m.optional),
                 ),
             )
         }
@@ -798,15 +760,14 @@ impl<'a> ReverseCtx<'a> {
     }
 
     fn convert_arguments(&self, args: &[Expression]) -> oxc_allocator::Vec<'a, oxc::Argument<'a>> {
-        self.builder
-            .vec_from_iter(args.iter().map(|a| self.convert_argument(a)))
+        self.builder.vec_from_iter(args.iter().map(|a| self.convert_argument(a)))
     }
 
     fn convert_argument(&self, arg: &Expression) -> oxc::Argument<'a> {
         match arg {
-            Expression::SpreadElement(s) => self
-                .builder
-                .argument_spread_element(SPAN, self.convert_expression(&s.argument)),
+            Expression::SpreadElement(s) => {
+                self.builder.argument_spread_element(SPAN, self.convert_expression(&s.argument))
+            }
             _ => oxc::Argument::from(self.convert_expression(arg)),
         }
     }
@@ -860,9 +821,8 @@ impl<'a> ReverseCtx<'a> {
                 oxc::ObjectPropertyKind::ObjectProperty(self.builder.alloc(obj_prop))
             }
             ObjectExpressionProperty::SpreadElement(s) => {
-                let spread = self
-                    .builder
-                    .spread_element(SPAN, self.convert_expression(&s.argument));
+                let spread =
+                    self.builder.spread_element(SPAN, self.convert_expression(&s.argument));
                 oxc::ObjectPropertyKind::SpreadProperty(self.builder.alloc(spread))
             }
         }
@@ -870,22 +830,21 @@ impl<'a> ReverseCtx<'a> {
 
     fn convert_expression_to_property_key(&self, expr: &Expression) -> oxc::PropertyKey<'a> {
         match expr {
-            Expression::Identifier(id) => self
-                .builder
-                .property_key_static_identifier(SPAN, self.atom(&id.name)),
+            Expression::Identifier(id) => {
+                self.builder.property_key_static_identifier(SPAN, self.atom(&id.name))
+            }
             Expression::StringLiteral(s) => {
                 let lit = self.builder.string_literal(SPAN, self.atom(&s.value), None);
                 oxc::PropertyKey::StringLiteral(self.builder.alloc(lit))
             }
             Expression::NumericLiteral(n) => {
                 let lit =
-                    self.builder
-                        .numeric_literal(SPAN, n.value, None, oxc::NumberBase::Decimal);
+                    self.builder.numeric_literal(SPAN, n.value, None, oxc::NumberBase::Decimal);
                 oxc::PropertyKey::NumericLiteral(self.builder.alloc(lit))
             }
-            Expression::PrivateName(p) => self
-                .builder
-                .property_key_private_identifier(SPAN, self.atom(&p.id.name)),
+            Expression::PrivateName(p) => {
+                self.builder.property_key_private_identifier(SPAN, self.atom(&p.id.name))
+            }
             _ => oxc::PropertyKey::from(self.convert_expression(expr)),
         }
     }
@@ -900,9 +859,8 @@ impl<'a> ReverseCtx<'a> {
             let value = oxc::TemplateElementValue { raw, cooked };
             self.builder.template_element(SPAN, value, q.tail, false)
         }));
-        let expressions = self
-            .builder
-            .vec_from_iter(tl.expressions.iter().map(|e| self.convert_expression(e)));
+        let expressions =
+            self.builder.vec_from_iter(tl.expressions.iter().map(|e| self.convert_expression(e)));
         self.builder.template_literal(SPAN, quasis, expressions)
     }
 
@@ -913,9 +871,7 @@ impl<'a> ReverseCtx<'a> {
         f: &FunctionDeclaration,
         fn_type: oxc::FunctionType,
     ) -> oxc::Function<'a> {
-        let id =
-            f.id.as_ref()
-                .map(|id| self.builder.binding_identifier(SPAN, self.atom(&id.name)));
+        let id = f.id.as_ref().map(|id| self.builder.binding_identifier(SPAN, self.atom(&id.name)));
         let params = self.convert_params_to_formal_parameters(&f.params);
         let body = self.convert_block_to_function_body(&f.body);
         self.builder.function(
@@ -934,9 +890,7 @@ impl<'a> ReverseCtx<'a> {
     }
 
     fn convert_class_declaration(&self, c: &ClassDeclaration) -> oxc::Class<'a> {
-        let id =
-            c.id.as_ref()
-                .map(|id| self.builder.binding_identifier(SPAN, self.atom(&id.name)));
+        let id = c.id.as_ref().map(|id| self.builder.binding_identifier(SPAN, self.atom(&id.name)));
         let super_class = c.super_class.as_ref().map(|s| self.convert_expression(s));
         let body = self.builder.class_body(SPAN, self.builder.vec());
         self.builder.class(
@@ -959,9 +913,7 @@ impl<'a> ReverseCtx<'a> {
         c: &react_compiler_ast::expressions::ClassExpression,
         class_type: oxc::ClassType,
     ) -> oxc::Class<'a> {
-        let id =
-            c.id.as_ref()
-                .map(|id| self.builder.binding_identifier(SPAN, self.atom(&id.name)));
+        let id = c.id.as_ref().map(|id| self.builder.binding_identifier(SPAN, self.atom(&id.name)));
         let super_class = c.super_class.as_ref().map(|s| self.convert_expression(s));
         let body = self.builder.class_body(SPAN, self.builder.vec());
         self.builder.class(
@@ -980,9 +932,7 @@ impl<'a> ReverseCtx<'a> {
     }
 
     fn convert_function_expr(&self, f: &FunctionExpression) -> oxc::Function<'a> {
-        let id =
-            f.id.as_ref()
-                .map(|id| self.builder.binding_identifier(SPAN, self.atom(&id.name)));
+        let id = f.id.as_ref().map(|id| self.builder.binding_identifier(SPAN, self.atom(&id.name)));
         let params = self.convert_params_to_formal_parameters(&f.params);
         let body = self.convert_block_to_function_body(&f.body);
         self.builder.function(
@@ -1119,9 +1069,9 @@ impl<'a> ReverseCtx<'a> {
 
     fn convert_pattern_to_binding_pattern(&self, pattern: &PatternLike) -> oxc::BindingPattern<'a> {
         match pattern {
-            PatternLike::Identifier(id) => self
-                .builder
-                .binding_pattern_binding_identifier(SPAN, self.atom(&id.name)),
+            PatternLike::Identifier(id) => {
+                self.builder.binding_pattern_binding_identifier(SPAN, self.atom(&id.name))
+            }
             PatternLike::ObjectPattern(obj) => {
                 let mut properties: Vec<oxc::BindingProperty<'a>> = Vec::new();
                 let mut rest: Option<oxc::BindingRestElement<'a>> = None;
@@ -1148,8 +1098,7 @@ impl<'a> ReverseCtx<'a> {
                 }
 
                 let props_vec = self.builder.vec_from_iter(properties);
-                self.builder
-                    .binding_pattern_object_pattern(SPAN, props_vec, rest)
+                self.builder.binding_pattern_object_pattern(SPAN, props_vec, rest)
             }
             PatternLike::ArrayPattern(arr) => {
                 let mut elements: Vec<Option<oxc::BindingPattern<'a>>> = Vec::new();
@@ -1169,14 +1118,12 @@ impl<'a> ReverseCtx<'a> {
                 }
 
                 let elems_vec = self.builder.vec_from_iter(elements);
-                self.builder
-                    .binding_pattern_array_pattern(SPAN, elems_vec, rest)
+                self.builder.binding_pattern_array_pattern(SPAN, elems_vec, rest)
             }
             PatternLike::AssignmentPattern(ap) => {
                 let left = self.convert_pattern_to_binding_pattern(&ap.left);
                 let right = self.convert_expression(&ap.right);
-                self.builder
-                    .binding_pattern_assignment_pattern(SPAN, left, right)
+                self.builder.binding_pattern_assignment_pattern(SPAN, left, right)
             }
             PatternLike::RestElement(r) => self.convert_pattern_to_binding_pattern(&r.argument),
             PatternLike::MemberExpression(_)
@@ -1204,15 +1151,12 @@ impl<'a> ReverseCtx<'a> {
                 let object = self.convert_expression(&m.object);
                 if m.computed {
                     let property = self.convert_expression(&m.property);
-                    let mem = self
-                        .builder
-                        .computed_member_expression(SPAN, object, property, false);
+                    let mem =
+                        self.builder.computed_member_expression(SPAN, object, property, false);
                     oxc::AssignmentTarget::ComputedMemberExpression(self.builder.alloc(mem))
                 } else {
                     let prop_name = self.expression_to_identifier_name(&m.property);
-                    let mem = self
-                        .builder
-                        .static_member_expression(SPAN, object, prop_name, false);
+                    let mem = self.builder.static_member_expression(SPAN, object, prop_name, false);
                     oxc::AssignmentTarget::StaticMemberExpression(self.builder.alloc(mem))
                 }
             }
@@ -1330,10 +1274,9 @@ impl<'a> ReverseCtx<'a> {
             PatternLike::AssignmentPattern(ap) => {
                 let binding = self.convert_pattern_to_assignment_target(&ap.left);
                 let init = self.convert_expression(&ap.right);
-                self.builder
-                    .assignment_target_maybe_default_assignment_target_with_default(
-                        SPAN, binding, init,
-                    )
+                self.builder.assignment_target_maybe_default_assignment_target_with_default(
+                    SPAN, binding, init,
+                )
             }
             _ => {
                 let target = self.convert_pattern_to_assignment_target(pattern);
@@ -1354,24 +1297,19 @@ impl<'a> ReverseCtx<'a> {
                 let object = self.convert_expression(&m.object);
                 if m.computed {
                     let property = self.convert_expression(&m.property);
-                    let mem = self
-                        .builder
-                        .computed_member_expression(SPAN, object, property, false);
+                    let mem =
+                        self.builder.computed_member_expression(SPAN, object, property, false);
                     oxc::SimpleAssignmentTarget::ComputedMemberExpression(self.builder.alloc(mem))
                 } else {
                     let prop_name = self.expression_to_identifier_name(&m.property);
-                    let mem = self
-                        .builder
-                        .static_member_expression(SPAN, object, prop_name, false);
+                    let mem = self.builder.static_member_expression(SPAN, object, prop_name, false);
                     oxc::SimpleAssignmentTarget::StaticMemberExpression(self.builder.alloc(mem))
                 }
             }
-            _ => self
-                .builder
-                .simple_assignment_target_assignment_target_identifier(
-                    SPAN,
-                    self.atom("__unknown__"),
-                ),
+            _ => self.builder.simple_assignment_target_assignment_target_identifier(
+                SPAN,
+                self.atom("__unknown__"),
+            ),
         }
     }
 
@@ -1379,23 +1317,17 @@ impl<'a> ReverseCtx<'a> {
 
     fn convert_jsx_element(&self, el: &JSXElement) -> oxc::JSXElement<'a> {
         let opening = self.convert_jsx_opening_element(&el.opening_element);
-        let children = self
-            .builder
-            .vec_from_iter(el.children.iter().map(|c| self.convert_jsx_child(c)));
-        let closing = el
-            .closing_element
-            .as_ref()
-            .map(|c| self.convert_jsx_closing_element(c));
+        let children =
+            self.builder.vec_from_iter(el.children.iter().map(|c| self.convert_jsx_child(c)));
+        let closing = el.closing_element.as_ref().map(|c| self.convert_jsx_closing_element(c));
         self.builder.jsx_element(SPAN, opening, children, closing)
     }
 
     fn convert_jsx_opening_element(&self, el: &JSXOpeningElement) -> oxc::JSXOpeningElement<'a> {
         let name = self.convert_jsx_element_name(&el.name);
-        let attrs = self.builder.vec_from_iter(
-            el.attributes
-                .iter()
-                .map(|a| self.convert_jsx_attribute_item(a)),
-        );
+        let attrs = self
+            .builder
+            .vec_from_iter(el.attributes.iter().map(|a| self.convert_jsx_attribute_item(a)));
         self.builder.jsx_opening_element(
             SPAN,
             name,
@@ -1414,11 +1346,9 @@ impl<'a> ReverseCtx<'a> {
             JSXElementName::JSXIdentifier(id) => {
                 let first_char = id.name.chars().next().unwrap_or('a');
                 if first_char.is_uppercase() || id.name.contains('.') {
-                    self.builder
-                        .jsx_element_name_identifier_reference(SPAN, self.atom(&id.name))
+                    self.builder.jsx_element_name_identifier_reference(SPAN, self.atom(&id.name))
                 } else {
-                    self.builder
-                        .jsx_element_name_identifier(SPAN, self.atom(&id.name))
+                    self.builder.jsx_element_name_identifier(SPAN, self.atom(&id.name))
                 }
             }
             JSXElementName::JSXMemberExpression(m) => {
@@ -1430,12 +1360,9 @@ impl<'a> ReverseCtx<'a> {
                 )
             }
             JSXElementName::JSXNamespacedName(ns) => {
-                let namespace = self
-                    .builder
-                    .jsx_identifier(SPAN, self.atom(&ns.namespace.name));
+                let namespace = self.builder.jsx_identifier(SPAN, self.atom(&ns.namespace.name));
                 let name = self.builder.jsx_identifier(SPAN, self.atom(&ns.name.name));
-                self.builder
-                    .jsx_element_name_namespaced_name(SPAN, namespace, name)
+                self.builder.jsx_element_name_namespaced_name(SPAN, namespace, name)
             }
         }
     }
@@ -1445,9 +1372,7 @@ impl<'a> ReverseCtx<'a> {
         m: &JSXMemberExpression,
     ) -> oxc::JSXMemberExpression<'a> {
         let object = self.convert_jsx_member_expression_object(&m.object);
-        let property = self
-            .builder
-            .jsx_identifier(SPAN, self.atom(&m.property.name));
+        let property = self.builder.jsx_identifier(SPAN, self.atom(&m.property.name));
         self.builder.jsx_member_expression(SPAN, object, property)
     }
 
@@ -1474,10 +1399,7 @@ impl<'a> ReverseCtx<'a> {
         match item {
             JSXAttributeItem::JSXAttribute(attr) => {
                 let name = self.convert_jsx_attribute_name(&attr.name);
-                let value = attr
-                    .value
-                    .as_ref()
-                    .map(|v| self.convert_jsx_attribute_value(v));
+                let value = attr.value.as_ref().map(|v| self.convert_jsx_attribute_value(v));
                 self.builder.jsx_attribute_item_attribute(SPAN, name, value)
             }
             JSXAttributeItem::JSXSpreadAttribute(s) => self
@@ -1488,16 +1410,13 @@ impl<'a> ReverseCtx<'a> {
 
     fn convert_jsx_attribute_name(&self, name: &JSXAttributeName) -> oxc::JSXAttributeName<'a> {
         match name {
-            JSXAttributeName::JSXIdentifier(id) => self
-                .builder
-                .jsx_attribute_name_identifier(SPAN, self.atom(&id.name)),
+            JSXAttributeName::JSXIdentifier(id) => {
+                self.builder.jsx_attribute_name_identifier(SPAN, self.atom(&id.name))
+            }
             JSXAttributeName::JSXNamespacedName(ns) => {
-                let namespace = self
-                    .builder
-                    .jsx_identifier(SPAN, self.atom(&ns.namespace.name));
+                let namespace = self.builder.jsx_identifier(SPAN, self.atom(&ns.namespace.name));
                 let name = self.builder.jsx_identifier(SPAN, self.atom(&ns.name.name));
-                self.builder
-                    .jsx_attribute_name_namespaced_name(SPAN, namespace, name)
+                self.builder.jsx_attribute_name_namespaced_name(SPAN, namespace, name)
             }
         }
     }
@@ -1505,20 +1424,17 @@ impl<'a> ReverseCtx<'a> {
     fn convert_jsx_attribute_value(&self, value: &JSXAttributeValue) -> oxc::JSXAttributeValue<'a> {
         match value {
             JSXAttributeValue::StringLiteral(s) => {
-                self.builder
-                    .jsx_attribute_value_string_literal(SPAN, self.atom(&s.value), None)
+                self.builder.jsx_attribute_value_string_literal(SPAN, self.atom(&s.value), None)
             }
             JSXAttributeValue::JSXExpressionContainer(ec) => {
                 let expr = self.convert_jsx_expression_container_expr(&ec.expression);
-                self.builder
-                    .jsx_attribute_value_expression_container(SPAN, expr)
+                self.builder.jsx_attribute_value_expression_container(SPAN, expr)
             }
             JSXAttributeValue::JSXElement(el) => {
                 let element = self.convert_jsx_element(el);
                 let opening = element.opening_element;
                 let closing = element.closing_element;
-                self.builder
-                    .jsx_attribute_value_element(SPAN, opening, element.children, closing)
+                self.builder.jsx_attribute_value_element(SPAN, opening, element.children, closing)
             }
             JSXAttributeValue::JSXFragment(frag) => {
                 let fragment = self.convert_jsx_fragment(frag);
@@ -1553,8 +1469,7 @@ impl<'a> ReverseCtx<'a> {
                 let element = self.convert_jsx_element(el);
                 let opening = element.opening_element;
                 let closing = element.closing_element;
-                self.builder
-                    .jsx_child_element(SPAN, opening, element.children, closing)
+                self.builder.jsx_child_element(SPAN, opening, element.children, closing)
             }
             JSXChild::JSXFragment(frag) => {
                 let fragment = self.convert_jsx_fragment(frag);
@@ -1569,32 +1484,27 @@ impl<'a> ReverseCtx<'a> {
                 let expr = self.convert_jsx_expression_container_expr(&ec.expression);
                 self.builder.jsx_child_expression_container(SPAN, expr)
             }
-            JSXChild::JSXSpreadChild(s) => self
-                .builder
-                .jsx_child_spread(SPAN, self.convert_expression(&s.expression)),
+            JSXChild::JSXSpreadChild(s) => {
+                self.builder.jsx_child_spread(SPAN, self.convert_expression(&s.expression))
+            }
         }
     }
 
     fn convert_jsx_fragment(&self, frag: &JSXFragment) -> oxc::JSXFragment<'a> {
         let opening = self.builder.jsx_opening_fragment(SPAN);
         let closing = self.builder.jsx_closing_fragment(SPAN);
-        let children = self
-            .builder
-            .vec_from_iter(frag.children.iter().map(|c| self.convert_jsx_child(c)));
+        let children =
+            self.builder.vec_from_iter(frag.children.iter().map(|c| self.convert_jsx_child(c)));
         self.builder.jsx_fragment(SPAN, opening, children, closing)
     }
 
     // ===== Import/Export =====
 
     fn convert_import_declaration(&self, decl: &ImportDeclaration) -> oxc::ImportDeclaration<'a> {
-        let specifiers = self.builder.vec_from_iter(
-            decl.specifiers
-                .iter()
-                .map(|s| self.convert_import_specifier(s)),
-        );
-        let source = self
+        let specifiers = self
             .builder
-            .string_literal(SPAN, self.atom(&decl.source.value), None);
+            .vec_from_iter(decl.specifiers.iter().map(|s| self.convert_import_specifier(s)));
+        let source = self.builder.string_literal(SPAN, self.atom(&decl.source.value), None);
         let import_kind = match decl.import_kind.as_ref() {
             Some(ImportKind::Type) => oxc::ImportOrExportKind::Type,
             _ => oxc::ImportOrExportKind::Value,
@@ -1615,30 +1525,22 @@ impl<'a> ReverseCtx<'a> {
     ) -> oxc::ImportDeclarationSpecifier<'a> {
         match spec {
             react_compiler_ast::declarations::ImportSpecifier::ImportSpecifier(s) => {
-                let local = self
-                    .builder
-                    .binding_identifier(SPAN, self.atom(&s.local.name));
+                let local = self.builder.binding_identifier(SPAN, self.atom(&s.local.name));
                 let imported = self.convert_module_export_name(&s.imported);
                 let import_kind = match s.import_kind.as_ref() {
                     Some(ImportKind::Type) => oxc::ImportOrExportKind::Type,
                     _ => oxc::ImportOrExportKind::Value,
                 };
-                let is = self
-                    .builder
-                    .import_specifier(SPAN, imported, local, import_kind);
+                let is = self.builder.import_specifier(SPAN, imported, local, import_kind);
                 oxc::ImportDeclarationSpecifier::ImportSpecifier(self.builder.alloc(is))
             }
             react_compiler_ast::declarations::ImportSpecifier::ImportDefaultSpecifier(s) => {
-                let local = self
-                    .builder
-                    .binding_identifier(SPAN, self.atom(&s.local.name));
+                let local = self.builder.binding_identifier(SPAN, self.atom(&s.local.name));
                 let ids = self.builder.import_default_specifier(SPAN, local);
                 oxc::ImportDeclarationSpecifier::ImportDefaultSpecifier(self.builder.alloc(ids))
             }
             react_compiler_ast::declarations::ImportSpecifier::ImportNamespaceSpecifier(s) => {
-                let local = self
-                    .builder
-                    .binding_identifier(SPAN, self.atom(&s.local.name));
+                let local = self.builder.binding_identifier(SPAN, self.atom(&s.local.name));
                 let ins = self.builder.import_namespace_specifier(SPAN, local);
                 oxc::ImportDeclarationSpecifier::ImportNamespaceSpecifier(self.builder.alloc(ins))
             }
@@ -1669,15 +1571,10 @@ impl<'a> ReverseCtx<'a> {
         &self,
         decl: &ExportNamedDeclaration,
     ) -> oxc::ExportNamedDeclaration<'a> {
-        let declaration = decl
-            .declaration
-            .as_ref()
-            .map(|d| self.convert_declaration(d));
-        let specifiers = self.builder.vec_from_iter(
-            decl.specifiers
-                .iter()
-                .map(|s| self.convert_export_specifier(s)),
-        );
+        let declaration = decl.declaration.as_ref().map(|d| self.convert_declaration(d));
+        let specifiers = self
+            .builder
+            .vec_from_iter(decl.specifiers.iter().map(|s| self.convert_export_specifier(s)));
         let source = decl
             .source
             .as_ref()
@@ -1734,13 +1631,11 @@ impl<'a> ReverseCtx<'a> {
                     Some(ExportKind::Type) => oxc::ImportOrExportKind::Type,
                     _ => oxc::ImportOrExportKind::Value,
                 };
-                self.builder
-                    .export_specifier(SPAN, local, exported, export_kind)
+                self.builder.export_specifier(SPAN, local, exported, export_kind)
             }
             react_compiler_ast::declarations::ExportSpecifier::ExportDefaultSpecifier(s) => {
                 let name = oxc::ModuleExportName::IdentifierName(
-                    self.builder
-                        .identifier_name(SPAN, self.atom(&s.exported.name)),
+                    self.builder.identifier_name(SPAN, self.atom(&s.exported.name)),
                 );
                 let default_name = oxc::ModuleExportName::IdentifierName(
                     self.builder.identifier_name(SPAN, self.atom("default")),
@@ -1757,8 +1652,7 @@ impl<'a> ReverseCtx<'a> {
                 let star = oxc::ModuleExportName::IdentifierName(
                     self.builder.identifier_name(SPAN, self.atom("*")),
                 );
-                self.builder
-                    .export_specifier(SPAN, star, exported, oxc::ImportOrExportKind::Value)
+                self.builder.export_specifier(SPAN, star, exported, oxc::ImportOrExportKind::Value)
             }
         }
     }
@@ -1801,9 +1695,7 @@ impl<'a> ReverseCtx<'a> {
         &self,
         decl: &ExportAllDeclaration,
     ) -> oxc::ExportAllDeclaration<'a> {
-        let source = self
-            .builder
-            .string_literal(SPAN, self.atom(&decl.source.value), None);
+        let source = self.builder.string_literal(SPAN, self.atom(&decl.source.value), None);
         let export_kind = match decl.export_kind.as_ref() {
             Some(ExportKind::Type) => oxc::ImportOrExportKind::Type,
             _ => oxc::ImportOrExportKind::Value,

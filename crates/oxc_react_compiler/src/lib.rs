@@ -143,9 +143,9 @@ pub fn transform(
             renames,
             ..
         } => (ast, events, renames),
-        react_compiler::entrypoint::compile_result::CompileResult::Error {
-            events, ..
-        } => (None, events, Vec::new()),
+        react_compiler::entrypoint::compile_result::CompileResult::Error { events, .. } => {
+            (None, events, Vec::new())
+        }
     };
 
     // Build the rename plan from the original scope info + compiler renames.
@@ -160,12 +160,7 @@ pub fn transform(
         serde_json::from_value(value).ok()
     });
 
-    TransformResult {
-        file: compiled_file,
-        diagnostics,
-        events,
-        rename_plan,
-    }
+    TransformResult { file: compiled_file, diagnostics, events, rename_plan }
 }
 
 /// Convenience wrapper — parses source text, runs semantic analysis, then transforms.
@@ -177,9 +172,7 @@ pub fn transform_source(
     let allocator = oxc_allocator::Allocator::default();
     let parsed = oxc_parser::Parser::new(&allocator, source_text, source_type).parse();
 
-    let semantic = oxc_semantic::SemanticBuilder::new()
-        .build(&parsed.program)
-        .semantic;
+    let semantic = oxc_semantic::SemanticBuilder::new().build(&parsed.program).semantic;
 
     transform(&parsed.program, &semantic, source_text, options)
 }
@@ -196,9 +189,7 @@ pub fn lint(
     opts.no_emit = true;
 
     let result = transform(program, semantic, source_text, opts);
-    LintResult {
-        diagnostics: result.diagnostics,
-    }
+    LintResult { diagnostics: result.diagnostics }
 }
 
 /// Emit a react_compiler_ast::File to a string via OXC codegen.
@@ -229,8 +220,7 @@ pub fn emit(
         let comment_allocator = oxc_allocator::Allocator::default();
         // Parse as TSX to handle maximum syntax variety
         let source_type = oxc_span::SourceType::tsx();
-        let parsed =
-            oxc_parser::Parser::new(&comment_allocator, source, source_type).parse();
+        let parsed = oxc_parser::Parser::new(&comment_allocator, source, source_type).parse();
 
         // Collect the span starts of top-level statements in the compiled
         // program. Only comments attached to these positions should be
@@ -247,10 +237,8 @@ pub fn emit(
         }
 
         // Copy only comments attached to top-level statements.
-        let mut comments = oxc_allocator::Vec::with_capacity_in(
-            parsed.program.comments.len(),
-            allocator,
-        );
+        let mut comments =
+            oxc_allocator::Vec::with_capacity_in(parsed.program.comments.len(), allocator);
         for comment in &parsed.program.comments {
             if top_level_starts.contains(&comment.attached_to) {
                 comments.push(*comment);
@@ -261,8 +249,7 @@ pub fn emit(
         // Set the source_text so the codegen can extract comment content
         // from the original source spans.
         // We copy the source into the allocator to guarantee the lifetime.
-        let source_in_alloc =
-            oxc_allocator::StringBuilder::from_str_in(source, allocator);
+        let source_in_alloc = oxc_allocator::StringBuilder::from_str_in(source, allocator);
         program.source_text = source_in_alloc.into_str();
     }
 
@@ -281,9 +268,7 @@ pub fn lint_source(
     let allocator = oxc_allocator::Allocator::default();
     let parsed = oxc_parser::Parser::new(&allocator, source_text, source_type).parse();
 
-    let semantic = oxc_semantic::SemanticBuilder::new()
-        .build(&parsed.program)
-        .semantic;
+    let semantic = oxc_semantic::SemanticBuilder::new().build(&parsed.program).semantic;
 
     lint(&parsed.program, &semantic, source_text, options)
 }
@@ -317,11 +302,7 @@ mod tests {
 
         let result = transform_source(source, oxc_span::SourceType::tsx(), options());
 
-        assert!(
-            result.diagnostics.is_empty(),
-            "unexpected diagnostics: {:?}",
-            result.diagnostics
-        );
+        assert!(result.diagnostics.is_empty(), "unexpected diagnostics: {:?}", result.diagnostics);
         let file = result.file.expect("React Compiler should have transformed the component");
 
         let allocator = oxc_allocator::Allocator::default();
@@ -332,7 +313,10 @@ mod tests {
             output.contains("react/compiler-runtime"),
             "expected the compiler-runtime cache import in output:\n{output}"
         );
-        assert!(output.contains("_c("), "expected memo cache reads (`_c(...)`) in output:\n{output}");
+        assert!(
+            output.contains("_c("),
+            "expected memo cache reads (`_c(...)`) in output:\n{output}"
+        );
     }
 
     #[test]

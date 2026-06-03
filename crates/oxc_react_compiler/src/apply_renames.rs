@@ -14,8 +14,8 @@
 use std::collections::HashMap;
 
 use oxc_ast::ast::*;
-use oxc_ast_visit::walk_mut;
 use oxc_ast_visit::VisitMut;
+use oxc_ast_visit::walk_mut;
 use react_compiler::entrypoint::compile_result::BindingRenameInfo;
 use react_compiler_ast::scope::BindingId;
 use react_compiler_ast::scope::ScopeInfo;
@@ -35,17 +35,14 @@ pub fn build_rename_plan(
     }
 
     // Map declaration_start -> rename info
-    let renames_by_declaration: HashMap<u32, &BindingRenameInfo> = renames
-        .iter()
-        .map(|rename| (rename.declaration_start, rename))
-        .collect();
+    let renames_by_declaration: HashMap<u32, &BindingRenameInfo> =
+        renames.iter().map(|rename| (rename.declaration_start, rename)).collect();
 
     // Find which BindingIds have been renamed
     let mut renamed_bindings: HashMap<BindingId, String> = HashMap::new();
     for binding in &scope_info.bindings {
-        let Some(rename) = binding
-            .declaration_start
-            .and_then(|start| renames_by_declaration.get(&start))
+        let Some(rename) =
+            binding.declaration_start.and_then(|start| renames_by_declaration.get(&start))
         else {
             continue;
         };
@@ -64,9 +61,7 @@ pub fn build_rename_plan(
         .ref_node_id_to_binding
         .iter()
         .filter_map(|(&position, binding_id)| {
-            renamed_bindings
-                .get(binding_id)
-                .map(|renamed| (position, renamed.clone()))
+            renamed_bindings.get(binding_id).map(|renamed| (position, renamed.clone()))
         })
         .collect()
 }
@@ -89,13 +84,7 @@ pub fn apply_renames<'a>(
     if rename_plan.is_empty() {
         return;
     }
-    walk_mut::walk_program(
-        &mut RenameApplyVisitor {
-            rename_plan,
-            allocator,
-        },
-        program,
-    );
+    walk_mut::walk_program(&mut RenameApplyVisitor { rename_plan, allocator }, program);
 }
 
 struct RenameApplyVisitor<'a, 'p> {
@@ -113,16 +102,18 @@ impl<'a> VisitMut<'a> for RenameApplyVisitor<'a, '_> {
     /// Rename identifier references (variable reads/uses).
     fn visit_identifier_reference(&mut self, ident: &mut IdentifierReference<'a>) {
         if let Some(renamed) = self.renamed_at(ident.span.start) {
-            ident.name =
-                oxc_allocator::StringBuilder::from_str_in(renamed, self.allocator).into_str().into();
+            ident.name = oxc_allocator::StringBuilder::from_str_in(renamed, self.allocator)
+                .into_str()
+                .into();
         }
     }
 
     /// Rename binding identifiers (variable declarations/params).
     fn visit_binding_identifier(&mut self, ident: &mut BindingIdentifier<'a>) {
         if let Some(renamed) = self.renamed_at(ident.span.start) {
-            ident.name =
-                oxc_allocator::StringBuilder::from_str_in(renamed, self.allocator).into_str().into();
+            ident.name = oxc_allocator::StringBuilder::from_str_in(renamed, self.allocator)
+                .into_str()
+                .into();
         }
     }
 
@@ -158,7 +149,9 @@ impl<'a> VisitMut<'a> for RenameApplyVisitor<'a, '_> {
                     // The value gets the renamed identifier
                     if let Expression::Identifier(ref mut ident) = prop.value {
                         ident.name =
-                oxc_allocator::StringBuilder::from_str_in(renamed, self.allocator).into_str().into();
+                            oxc_allocator::StringBuilder::from_str_in(renamed, self.allocator)
+                                .into_str()
+                                .into();
                     }
                     return;
                 }
@@ -182,7 +175,9 @@ impl<'a> VisitMut<'a> for RenameApplyVisitor<'a, '_> {
                     // Rename the binding identifier
                     if let BindingPattern::BindingIdentifier(ref mut ident) = prop.value {
                         ident.name =
-                oxc_allocator::StringBuilder::from_str_in(renamed, self.allocator).into_str().into();
+                            oxc_allocator::StringBuilder::from_str_in(renamed, self.allocator)
+                                .into_str()
+                                .into();
                     }
                     return;
                 }
