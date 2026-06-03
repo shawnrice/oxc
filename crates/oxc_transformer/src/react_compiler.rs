@@ -36,6 +36,7 @@ pub fn run<'a>(
     errors: &mut std::vec::Vec<OxcDiagnostic>,
 ) -> Scoping {
     let source_text = program.source_text;
+    let source_type = program.source_type;
 
     // The compiler needs the AST node tree, so build a `Semantic`. Its borrow of
     // `program` is released at the end of this block, before we replace `*program`.
@@ -57,6 +58,7 @@ pub fn run<'a>(
         allocator,
         source_text,
     );
+    compiled.source_type = source_type;
     oxc_react_compiler::apply_renames::apply_renames(&mut compiled, &rename_plan, allocator);
     *program = compiled;
 
