@@ -1,4 +1,3 @@
-#![allow(clippy::print_stdout)] // example prints to stdout
 //! # React Compiler Example
 //!
 //! Runs the Rust port of React Compiler ([facebook/react#36173]) over a file
@@ -8,10 +7,9 @@
 //! ## Usage
 //!
 //! ```bash
-//! cargo run -p oxc_react_compiler --example react_compiler [filename]
+//! just example react_compiler             # built-in sample component
+//! just example react_compiler MyFile.jsx  # or pass a file path
 //! ```
-//!
-//! With no `filename`, a small built-in component is compiled.
 //!
 //! [facebook/react#36173]: https://github.com/facebook/react/pull/36173
 
@@ -28,9 +26,6 @@ const DEFAULT_SOURCE: &str = "function Component(props) {
 }
 ";
 
-// Instruction:
-// run `cargo run -p oxc_react_compiler --example react_compiler`
-
 /// Compile a React component with the Rust React Compiler and print the result.
 fn main() {
     let name = std::env::args().nth(1);
@@ -43,9 +38,7 @@ fn main() {
             let source_type = SourceType::from_path(path).unwrap_or_else(|_| SourceType::tsx());
             (source, source_type, name.clone())
         }
-        None => {
-            (DEFAULT_SOURCE.to_string(), SourceType::tsx(), "Component.jsx".to_string())
-        }
+        None => (DEFAULT_SOURCE.to_string(), SourceType::tsx(), "Component.jsx".to_string()),
     };
 
     println!("Original ({label}):\n");
