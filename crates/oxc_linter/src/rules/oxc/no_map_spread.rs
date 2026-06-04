@@ -231,7 +231,7 @@ declare_oxc_lint!(
     /// let d = arr.concat(set); // [1, 2, 3, 4]
     /// ```
     ///
-    /// ### Automatic Fixing
+    /// ### Fix Suggestions
     /// This rule can suggest fixes for violations caused by object spreads, but
     /// does not fix arrays. Object spreads can get replaced with
     /// [`Object.assign`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/assign). Array fixing may be added in the future.
@@ -375,7 +375,9 @@ impl Rule for NoMapSpread {
             let diagnostic = no_map_spread_diagnostic(map_call_site, &spread, returned_span);
             if let Some(obj) = spread.as_object() {
                 debug_assert!(!obj.properties.is_empty());
-                if obj.properties.first().is_some_and(ObjectPropertyKind::is_spread) {
+                if obj.properties.len() > 1
+                    && obj.properties.first().is_some_and(ObjectPropertyKind::is_spread)
+                {
                     ctx.diagnostic_with_suggestion(diagnostic, |fixer| {
                         fix_spread_to_object_assign(fixer, obj)
                     });
@@ -713,7 +715,10 @@ where
 fn test() {
     use serde_json::json;
 
-    use crate::tester::Tester;
+    use crate::{
+        fixer::FixKind,
+        tester::{ExpectFixTestCase, Tester},
+    };
 
     let pass = vec![
         ("let a = b.map(x => x)", None),
@@ -806,28 +811,32 @@ fn test() {
         ("const foo = a => a.map(x => ({ ...(x ?? y) }))", Some(json!([{ "ignoreArgs": false }]))),
     ];
 
-    let fix = vec![
+    let fix: Vec<ExpectFixTestCase> = vec![
         // single spreads cannot be fixed with `Object.assign`. We'll assume the
         // spread is happening intentionally, to force a shallow clone. Maybe we
         // shouldn't even report these cases?
-        ("let a = b.map(x => ({ ...x }))", "let a = b.map(x => ({ ...x }))"),
+        ("let a = b.map(x => ({ ...x }))", "let a = b.map(x => ({ ...x }))").into(),
         // two
         (
             "let a = b.map(({ x, y }) => ({ ...x, ...y }))",
             "let a = b.map(({ x, y }) => (Object.assign(x, y)))",
-        ),
+        )
+        .into(),
         (
             "let a = b.map(({ x, y }) => { return { ...x, ...y }; })",
             "let a = b.map(({ x, y }) => { return Object.assign(x, y); })",
-        ),
+        )
+        .into(),
         (
             "let a = b.map(({ x, y }) => ({ x, ...y }))",
             "let a = b.map(({ x, y }) => ({ x, ...y }))",
-        ),
+        )
+        .into(),
         (
             "let a = b.map(({ x, y }) => ({ ...x, y }))",
             "let a = b.map(({ x, y }) => (Object.assign(x, { y })))",
-        ),
+        )
+        .into(),
         // three
         (
             "let a = b.map(({ x, y, z }) => ({ ...x, y, z }))",
@@ -835,19 +844,25 @@ fn test() {
 	y,
 	z
 })))",
-        ),
+        )
+        .into(),
         (
             "let a = b.map(({ x, y, z }) => ({ x, ...y, z }))",
             "let a = b.map(({ x, y, z }) => ({ x, ...y, z }))",
-        ),
+        )
+        .into(),
         (
             "let a = b.map(({ x, y, z }) => ({ x, y, ...z }))",
             "let a = b.map(({ x, y, z }) => ({ x, y, ...z }))",
-        ),
+        )
+        .into(),
         (
             "head.push({ link: [...assets.js.map((attrs: any) => ({ rel: 'modulepreload', ...attrs }))] })",
             "head.push({ link: [...assets.js.map((attrs: any) => ({ rel: 'modulepreload', ...attrs }))] })",
-        ),
+            None,
+            FixKind::SafeFix,
+        )
+        .into(),
     ];
 
     Tester::new(NoMapSpread::NAME, NoMapSpread::PLUGIN, pass, fail)
