@@ -232,25 +232,20 @@ declare_oxc_lint!(
     /// ```
     ///
     /// ### Automatic Fixing
-    /// This rule can automatically fix violations caused by object spreads, but
-    /// does not fix arrays. Object spreads will get replaced with
-    /// [`Object.assign`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/assign).  Array fixing may be added in the future.
+    /// This rule can suggest fixes for violations caused by object spreads, but
+    /// does not fix arrays. Object spreads can get replaced with
+    /// [`Object.assign`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/assign). Array fixing may be added in the future.
     ///
     /// Object expressions with a single element (the spread) are not fixed.
     /// ```js
     /// arr.map(x => ({ ...x })) // not fixed
     /// ```
     ///
-    /// A `fix` is available (using `--fix`) for objects with "normal" elements before the
-    /// spread. Since `Object.apply` mutates the first argument, and a new
-    /// object will be created with those elements, the spread identifier will
-    /// not be mutated. In effect, the spread semantics are preserved
+    /// Object expressions with "normal" properties before the spread are not
+    /// fixed, because preserving semantics with `Object.assign` requires
+    /// allocating a new object.
     /// ```js
-    /// // before
-    /// arr.map(({ x, y }) => ({ x, ...y }))
-    ///
-    /// // after
-    /// arr.map(({ x, y }) => (Object.assign({ x }, y)))
+    /// arr.map(({ x, y }) => ({ x, ...y })) // not fixed
     /// ```
     ///
     /// A suggestion (using `--fix-suggestions`) is provided when a spread is
@@ -318,7 +313,7 @@ declare_oxc_lint!(
     NoMapSpread,
     oxc,
     perf,
-    conditional_fix_suggestion,
+    conditional_suggestion,
     config = NoMapSpreadConfig,
     version = "0.11.0",
 );
@@ -385,9 +380,7 @@ impl Rule for NoMapSpread {
                         fix_spread_to_object_assign(fixer, obj)
                     });
                 } else {
-                    ctx.diagnostic_with_fix(diagnostic, |fixer| {
-                        fix_spread_to_object_assign(fixer, obj)
-                    });
+                    ctx.diagnostic(diagnostic);
                 }
             } else {
                 ctx.diagnostic(diagnostic);
@@ -829,7 +822,7 @@ fn test() {
         ),
         (
             "let a = b.map(({ x, y }) => ({ x, ...y }))",
-            "let a = b.map(({ x, y }) => (Object.assign({ x }, y)))",
+            "let a = b.map(({ x, y }) => ({ x, ...y }))",
         ),
         (
             "let a = b.map(({ x, y }) => ({ ...x, y }))",
@@ -845,14 +838,15 @@ fn test() {
         ),
         (
             "let a = b.map(({ x, y, z }) => ({ x, ...y, z }))",
-            "let a = b.map(({ x, y, z }) => (Object.assign({ x }, y, { z })))",
+            "let a = b.map(({ x, y, z }) => ({ x, ...y, z }))",
         ),
         (
             "let a = b.map(({ x, y, z }) => ({ x, y, ...z }))",
-            "let a = b.map(({ x, y, z }) => (Object.assign({
-	x,
-	y
-}, z)))",
+            "let a = b.map(({ x, y, z }) => ({ x, y, ...z }))",
+        ),
+        (
+            "head.push({ link: [...assets.js.map((attrs: any) => ({ rel: 'modulepreload', ...attrs }))] })",
+            "head.push({ link: [...assets.js.map((attrs: any) => ({ rel: 'modulepreload', ...attrs }))] })",
         ),
     ];
 
