@@ -5,8 +5,6 @@ pub mod convert_scope;
 pub mod diagnostics;
 pub mod prefilter;
 
-use std::collections::HashMap;
-
 use apply_renames::build_rename_plan;
 use convert_ast::convert_program;
 use convert_scope::convert_scope_info;
@@ -91,16 +89,12 @@ pub fn default_plugin_options() -> PluginOptions {
 }
 
 /// Result of compiling a program via the OXC frontend.
-pub struct TransformResult {
-    /// The compiled program as a react_compiler_ast File (None if no changes needed).
-    pub file: Option<react_compiler_ast::File>,
+pub struct TransformResult<'a> {
+    /// The compiled program as an OXC AST — renames applied, `source_type` set,
+    /// comments preserved — ready for codegen. `None` if the compiler made no changes.
+    pub program: Option<oxc_ast::ast::Program<'a>>,
     pub diagnostics: Vec<oxc_diagnostics::OxcDiagnostic>,
     pub events: Vec<LoggerEvent>,
-    /// Pre-computed rename plan: maps source positions (span.start) to new
-    /// identifier names. Built from the compiler's binding renames and the
-    /// original scope info. Applied during `emit()` to fix references in
-    /// uncompiled sibling functions.
-    pub rename_plan: HashMap<u32, String>,
 }
 
 /// Result of linting a program via the OXC frontend.
@@ -109,20 +103,22 @@ pub struct LintResult {
 }
 
 /// Primary transform API — accepts pre-parsed OXC AST + semantic.
-pub fn transform(
-    program: &oxc_ast::ast::Program,
+///
+/// Returns diagnostics plus the compiled program as a ready-to-codegen OXC AST
+/// (renames applied, `source_type` set, comments preserved), allocated in
+/// `allocator`. `program` is `None` when the prefilter bails or the compiler
+/// made no changes.
+pub fn transform<'a>(
+    program: &oxc_ast::ast::Program<'a>,
     semantic: &oxc_semantic::Semantic,
-    source_text: &str,
+    allocator: &'a oxc_allocator::Allocator,
     options: PluginOptions,
-) -> TransformResult {
+) -> TransformResult<'a> {
+    let source_text = program.source_text;
+
     // Prefilter: skip files without React-like functions (unless compilationMode == "all")
     if options.compilation_mode != "all" && !has_react_like_functions(program) {
-        return TransformResult {
-            file: None,
-            diagnostics: vec![],
-            events: vec![],
-            rename_plan: HashMap::new(),
-        };
+        return TransformResult { program: None, diagnostics: vec![], events: vec![] };
     }
 
     // Convert OXC AST to react_compiler_ast
@@ -160,21 +156,84 @@ pub fn transform(
         serde_json::from_value(value).ok()
     });
 
-    TransformResult { file: compiled_file, diagnostics, events, rename_plan }
+    // Convert the compiled Babel `File` back into an OXC `Program`, ready for
+    // codegen: source type carried over, binding renames applied, and comments
+    // from the original source preserved.
+    let compiled_program = compiled_file.map(|file: react_compiler_ast::File| {
+        let mut compiled =
+            convert_ast_reverse::convert_program_to_oxc_with_source(&file, allocator, source_text);
+        compiled.source_type = program.source_type;
+        apply_renames::apply_renames(&mut compiled, &rename_plan, allocator);
+        preserve_comments(&mut compiled, source_text, allocator);
+        compiled
+    });
+
+    TransformResult { program: compiled_program, diagnostics, events }
+}
+
+/// Preserve comments from the original `source_text` in the compiled OXC
+/// `program` so codegen can re-emit them.
+///
+/// Re-parses the source as TSX to extract comments, then copies only those
+/// attached to top-level statements of the compiled program (comments inside
+/// function bodies have `attached_to` values that don't match any top-level
+/// statement). The source is copied into `allocator` so codegen can read the
+/// comment content from the original spans.
+fn preserve_comments<'a>(
+    program: &mut oxc_ast::ast::Program<'a>,
+    source_text: &str,
+    allocator: &'a oxc_allocator::Allocator,
+) {
+    // Re-parse the original source to extract comments.
+    // We use a separate allocator for the parse since we only need the comments.
+    let comment_allocator = oxc_allocator::Allocator::default();
+    // Parse as TSX to handle maximum syntax variety
+    let source_type = oxc_span::SourceType::tsx();
+    let parsed = oxc_parser::Parser::new(&comment_allocator, source_text, source_type).parse();
+
+    // Collect the span starts of top-level statements in the compiled
+    // program. Only comments attached to these positions should be
+    // preserved — comments inside function bodies would have
+    // `attached_to` values that don't match any top-level statement.
+    let mut top_level_starts = std::collections::HashSet::new();
+    top_level_starts.insert(0u32); // position 0 for comments at the very start
+    for stmt in &program.body {
+        use oxc_span::GetSpan;
+        let start = stmt.span().start;
+        if start > 0 {
+            top_level_starts.insert(start);
+        }
+    }
+
+    // Copy only comments attached to top-level statements.
+    let mut comments =
+        oxc_allocator::Vec::with_capacity_in(parsed.program.comments.len(), allocator);
+    for comment in &parsed.program.comments {
+        if top_level_starts.contains(&comment.attached_to) {
+            comments.push(*comment);
+        }
+    }
+    program.comments = comments;
+
+    // Set the source_text so the codegen can extract comment content
+    // from the original source spans.
+    // We copy the source into the allocator to guarantee the lifetime.
+    let source_in_alloc = oxc_allocator::StringBuilder::from_str_in(source_text, allocator);
+    program.source_text = source_in_alloc.into_str();
 }
 
 /// Convenience wrapper — parses source text, runs semantic analysis, then transforms.
-pub fn transform_source(
-    source_text: &str,
+pub fn transform_source<'a>(
+    source_text: &'a str,
     source_type: oxc_span::SourceType,
+    allocator: &'a oxc_allocator::Allocator,
     options: PluginOptions,
-) -> TransformResult {
-    let allocator = oxc_allocator::Allocator::default();
-    let parsed = oxc_parser::Parser::new(&allocator, source_text, source_type).parse();
+) -> TransformResult<'a> {
+    let parsed = oxc_parser::Parser::new(allocator, source_text, source_type).parse();
 
     let semantic = oxc_semantic::SemanticBuilder::new().build(&parsed.program).semantic;
 
-    transform(&parsed.program, &semantic, source_text, options)
+    transform(&parsed.program, &semantic, allocator, options)
 }
 
 /// Lint API — accepts pre-parsed OXC AST + semantic.
@@ -182,81 +241,16 @@ pub fn transform_source(
 pub fn lint(
     program: &oxc_ast::ast::Program,
     semantic: &oxc_semantic::Semantic,
-    source_text: &str,
     options: PluginOptions,
 ) -> LintResult {
     let mut opts = options;
     opts.no_emit = true;
 
-    let result = transform(program, semantic, source_text, opts);
+    // `no_emit` yields `program: None`, so no compiled AST escapes; a local
+    // arena for the (unused) conversion machinery is sufficient.
+    let allocator = oxc_allocator::Allocator::default();
+    let result = transform(program, semantic, &allocator, opts);
     LintResult { diagnostics: result.diagnostics }
-}
-
-/// Emit a react_compiler_ast::File to a string via OXC codegen.
-/// Converts the File to an OXC Program, then uses oxc_codegen to emit.
-///
-/// If `source_text` is provided, comments from the original source will be
-/// preserved in the output by re-parsing the source to extract comments and
-/// injecting them into the OXC program before codegen.
-///
-/// If `rename_plan` is non-empty, binding renames are applied to the OXC
-/// program before emission. This fixes references in uncompiled sibling
-/// functions when the compiler renames a shared binding.
-pub fn emit(
-    file: &react_compiler_ast::File,
-    allocator: &oxc_allocator::Allocator,
-    source_text: Option<&str>,
-    rename_plan: &HashMap<u32, String>,
-) -> String {
-    let mut program = if let Some(source) = source_text {
-        convert_ast_reverse::convert_program_to_oxc_with_source(file, allocator, source)
-    } else {
-        convert_ast_reverse::convert_program_to_oxc(file, allocator)
-    };
-
-    if let Some(source) = source_text {
-        // Re-parse the original source to extract comments.
-        // We use a separate allocator for the parse since we only need the comments.
-        let comment_allocator = oxc_allocator::Allocator::default();
-        // Parse as TSX to handle maximum syntax variety
-        let source_type = oxc_span::SourceType::tsx();
-        let parsed = oxc_parser::Parser::new(&comment_allocator, source, source_type).parse();
-
-        // Collect the span starts of top-level statements in the compiled
-        // program. Only comments attached to these positions should be
-        // preserved — comments inside function bodies would have
-        // `attached_to` values that don't match any top-level statement.
-        let mut top_level_starts = std::collections::HashSet::new();
-        top_level_starts.insert(0u32); // position 0 for comments at the very start
-        for stmt in &program.body {
-            use oxc_span::GetSpan;
-            let start = stmt.span().start;
-            if start > 0 {
-                top_level_starts.insert(start);
-            }
-        }
-
-        // Copy only comments attached to top-level statements.
-        let mut comments =
-            oxc_allocator::Vec::with_capacity_in(parsed.program.comments.len(), allocator);
-        for comment in &parsed.program.comments {
-            if top_level_starts.contains(&comment.attached_to) {
-                comments.push(*comment);
-            }
-        }
-        program.comments = comments;
-
-        // Set the source_text so the codegen can extract comment content
-        // from the original source spans.
-        // We copy the source into the allocator to guarantee the lifetime.
-        let source_in_alloc = oxc_allocator::StringBuilder::from_str_in(source, allocator);
-        program.source_text = source_in_alloc.into_str();
-    }
-
-    // Apply binding renames to fix references in uncompiled sibling functions
-    apply_renames::apply_renames(&mut program, rename_plan, allocator);
-
-    oxc_codegen::Codegen::new().build(&program).code
 }
 
 /// Convenience wrapper — parses source text, runs semantic analysis, then lints.
@@ -270,7 +264,39 @@ pub fn lint_source(
 
     let semantic = oxc_semantic::SemanticBuilder::new().build(&parsed.program).semantic;
 
-    lint(&parsed.program, &semantic, source_text, options)
+    lint(&parsed.program, &semantic, options)
+}
+
+/// Run the React Compiler over `program` as a standalone pass, returning the
+/// `Scoping` the rest of the pipeline should use — rebuilt if the program changed,
+/// otherwise the input `scoping`.
+///
+/// The compiler needs the AST node tree (not just `Scoping`) and rewrites the whole
+/// program, so it must run **first**, on the pristine AST, before any other transform.
+pub fn run<'a>(
+    program: &mut oxc_ast::ast::Program<'a>,
+    allocator: &'a oxc_allocator::Allocator,
+    scoping: oxc_semantic::Scoping,
+    options: &PluginOptions,
+    errors: &mut std::vec::Vec<oxc_diagnostics::OxcDiagnostic>,
+) -> oxc_semantic::Scoping {
+    // The compiler needs a `Semantic`; its borrow of `program` is released at the
+    // end of this block. The returned `Program` lives in `allocator` (not borrowed
+    // from `*program`), so the reassignment below is sound.
+    let result = {
+        let semantic = oxc_semantic::SemanticBuilder::new().build(program).semantic;
+        transform(program, &semantic, allocator, options.clone())
+    };
+    errors.extend(result.diagnostics);
+
+    let Some(compiled) = result.program else {
+        // No change: `program` is untouched, so the input scoping is still valid.
+        return scoping;
+    };
+    *program = compiled;
+
+    // The compiler rewrote the program; rebuild scoping for downstream transforms.
+    oxc_semantic::SemanticBuilder::new().build(program).semantic.into_scoping()
 }
 
 // oxc-added: end-to-end smoke tests (not part of upstream `react_compiler_oxc`).
@@ -281,7 +307,7 @@ pub fn lint_source(
 mod tests {
     use react_compiler::entrypoint::plugin_options::PluginOptions;
 
-    use super::{emit, transform_source};
+    use super::transform_source;
 
     fn options() -> PluginOptions {
         // Only the non-`#[serde(default)]` fields are required; the rest
@@ -300,13 +326,13 @@ mod tests {
         let source = "function Component(props) {\n  \
             return <div onClick={() => props.onClick()}>{props.text}</div>;\n}\n";
 
-        let result = transform_source(source, oxc_span::SourceType::tsx(), options());
+        let allocator = oxc_allocator::Allocator::default();
+        let result = transform_source(source, oxc_span::SourceType::tsx(), &allocator, options());
 
         assert!(result.diagnostics.is_empty(), "unexpected diagnostics: {:?}", result.diagnostics);
-        let file = result.file.expect("React Compiler should have transformed the component");
+        let program = result.program.expect("React Compiler should have transformed the component");
 
-        let allocator = oxc_allocator::Allocator::default();
-        let output = emit(&file, &allocator, Some(source), &result.rename_plan);
+        let output = oxc_codegen::Codegen::new().build(&program).code;
 
         // Memoization artifacts proving the full oxc -> RC -> oxc round trip ran.
         assert!(
@@ -323,8 +349,8 @@ mod tests {
     fn skips_non_react_code() {
         // A plain, non-component/non-hook function is filtered out: no change.
         let source = "function add(a, b) {\n  return a + b;\n}\n";
-        let result = transform_source(source, oxc_span::SourceType::tsx(), options());
-        assert!(result.file.is_none(), "non-React code must not be transformed");
-        assert!(result.rename_plan.is_empty());
+        let allocator = oxc_allocator::Allocator::default();
+        let result = transform_source(source, oxc_span::SourceType::tsx(), &allocator, options());
+        assert!(result.program.is_none(), "non-React code must not be transformed");
     }
 }

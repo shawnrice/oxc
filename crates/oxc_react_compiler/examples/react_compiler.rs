@@ -16,10 +16,13 @@
 use std::path::Path;
 
 use oxc_allocator::Allocator;
+use oxc_codegen::Codegen;
+use oxc_parser::Parser;
+use oxc_semantic::SemanticBuilder;
 use oxc_span::SourceType;
 use react_compiler::entrypoint::plugin_options::PluginOptions;
 
-use oxc_react_compiler::{emit, transform_source};
+use oxc_react_compiler::transform;
 
 const DEFAULT_SOURCE: &str = "function Component(props) {
   return <div onClick={() => props.onClick()}>{props.text}</div>;
@@ -54,7 +57,11 @@ fn main() {
     }))
     .unwrap();
 
-    let result = transform_source(&source_text, source_type, options);
+    let allocator = Allocator::default();
+    let program = Parser::new(&allocator, &source_text, source_type).parse().program;
+    let semantic = SemanticBuilder::new().build(&program).semantic;
+
+    let result = transform(&program, &semantic, &allocator, options);
 
     if !result.diagnostics.is_empty() {
         println!("Diagnostics:\n");
@@ -64,10 +71,9 @@ fn main() {
         println!();
     }
 
-    match result.file {
-        Some(file) => {
-            let allocator = Allocator::default();
-            let output = emit(&file, &allocator, Some(&source_text), &result.rename_plan);
+    match result.program {
+        Some(compiled) => {
+            let output = Codegen::new().build(&compiled).code;
             println!("Compiled:\n");
             println!("{output}");
         }

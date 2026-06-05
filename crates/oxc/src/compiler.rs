@@ -8,13 +8,13 @@ use oxc_isolated_declarations::{IsolatedDeclarations, IsolatedDeclarationsOption
 use oxc_mangler::{MangleOptions, Mangler, ManglerReturn};
 use oxc_minifier::{CompressOptions, Compressor};
 use oxc_parser::{ParseOptions, Parser, ParserReturn};
+use oxc_react_compiler::{self, PluginOptions as ReactCompilerOptions};
 use oxc_semantic::{Scoping, SemanticBuilder, SemanticBuilderReturn};
 use oxc_span::SourceType;
 use oxc_transformer::{TransformOptions, Transformer, TransformerReturn};
 use oxc_transformer_plugins::{
     InjectGlobalVariables, InjectGlobalVariablesConfig, ReplaceGlobalDefines,
     ReplaceGlobalDefinesConfig,
-    react_compiler::{self, ReactCompilerOptions},
 };
 
 #[derive(Default)]
@@ -73,7 +73,7 @@ pub trait CompilerInterface {
 
     /// Options for the [React Compiler], which runs before all other transforms.
     ///
-    /// [React Compiler]: oxc_transformer_plugins::react_compiler
+    /// [React Compiler]: oxc_react_compiler
     fn react_compiler_options(&self) -> Option<ReactCompilerOptions> {
         None
     }
@@ -161,7 +161,8 @@ pub trait CompilerInterface {
         // Runs first, on the pristine AST, before every other transform.
         let mut errors = Vec::new();
         if let Some(options) = self.react_compiler_options() {
-            scoping = react_compiler::run(&mut program, &allocator, scoping, &options, &mut errors);
+            scoping =
+                oxc_react_compiler::run(&mut program, &allocator, scoping, &options, &mut errors);
         }
 
         /* Transform */

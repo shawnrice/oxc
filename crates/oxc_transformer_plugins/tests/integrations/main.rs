@@ -1,5 +1,4 @@
 mod inject_global_variables;
-mod react_compiler;
 mod replace_global_defines;
 
 use oxc_allocator::Allocator;
