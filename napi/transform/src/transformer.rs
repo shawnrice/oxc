@@ -209,7 +209,7 @@ impl TryFrom<TransformOptions> for oxc::transformer::TransformOptions {
 impl TransformOptions {
     /// Take the `reactCompiler` option and resolve it into the compiler's
     /// `PluginOptions`. The React Compiler is a standalone pass driven by the
-    /// [`CompilerInterface`](oxc::CompilerInterface), so it is not part of
+    /// [`CompilerInterface`], so it is not part of
     /// `oxc::transformer::TransformOptions`.
     fn take_react_compiler(&mut self) -> Option<oxc_react_compiler::PluginOptions> {
         crate::react_compiler::resolve(self.react_compiler.take())
