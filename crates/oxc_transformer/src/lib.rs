@@ -134,7 +134,6 @@ impl<'a> Transformer<'a> {
         program: &mut Program<'a>,
     ) -> TransformerReturn {
         let allocator = self.allocator;
-
         let ast_builder = AstBuilder::new(allocator);
 
         self.state.source_type = program.source_type;
@@ -189,11 +188,8 @@ impl<'a> Transformer<'a> {
         traverse_mut_with_ctx(&mut transformer, program, &mut reusable_ctx);
         let (mut state, scoping) = reusable_ctx.into_state_and_scoping();
         let helpers_used = state.helper_loader.used_helpers.drain().collect();
-
-        let errors = state.take_errors();
-
         #[expect(deprecated)]
-        TransformerReturn { errors, scoping, helpers_used }
+        TransformerReturn { errors: state.take_errors(), scoping, helpers_used }
     }
 }
 
