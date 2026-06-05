@@ -14,6 +14,7 @@ use oxc_transformer::{TransformOptions, Transformer, TransformerReturn};
 use oxc_transformer_plugins::{
     InjectGlobalVariables, InjectGlobalVariablesConfig, ReplaceGlobalDefines,
     ReplaceGlobalDefinesConfig,
+    react_compiler::{self, ReactCompilerOptions},
 };
 
 #[derive(Default)]
@@ -67,6 +68,13 @@ pub trait CompilerInterface {
     }
 
     fn transform_options(&self) -> Option<&TransformOptions> {
+        None
+    }
+
+    /// Options for the [React Compiler], which runs before all other transforms.
+    ///
+    /// [React Compiler]: oxc_transformer_plugins::react_compiler
+    fn react_compiler_options(&self) -> Option<ReactCompilerOptions> {
         None
     }
 
@@ -148,14 +156,23 @@ pub trait CompilerInterface {
         let stats = semantic_return.semantic.stats();
         let mut scoping = semantic_return.semantic.into_scoping();
 
+        /* React Compiler */
+
+        // Runs first, on the pristine AST, before every other transform.
+        let mut errors = Vec::new();
+        if let Some(options) = self.react_compiler_options() {
+            scoping = react_compiler::run(&mut program, &allocator, scoping, &options, &mut errors);
+        }
+
         /* Transform */
 
         if let Some(options) = self.transform_options() {
             let mut transformer_return =
                 self.transform(options, &allocator, &mut program, source_path, scoping);
 
-            if !transformer_return.errors.is_empty() {
-                self.handle_errors(transformer_return.errors);
+            errors.append(&mut transformer_return.errors);
+            if !errors.is_empty() {
+                self.handle_errors(errors);
                 return;
             }
 
@@ -164,6 +181,9 @@ pub trait CompilerInterface {
             }
 
             (scoping) = transformer_return.scoping;
+        } else if !errors.is_empty() {
+            self.handle_errors(errors);
+            return;
         }
 
         let inject_options = self.inject_options();

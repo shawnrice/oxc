@@ -1,14 +1,17 @@
 //! React Compiler integration.
 //!
-//! Runs the Rust port of React Compiler ([facebook/react#36173]) as the **first**
-//! transform, before JSX and ES lowering, memoizing React components and hooks.
+//! Runs the Rust port of React Compiler ([facebook/react#36173]), memoizing
+//! React components and hooks.
 //!
-//! The compiler needs a [`Semantic`](oxc_semantic::Semantic) (it can't work from
-//! [`Scoping`] alone — it walks the AST node tree) and rewrites the whole program,
-//! so this builds a `Semantic`, runs the compiler, swaps in the result, and
-//! rebuilds `Scoping` for the rest of the pipeline. It must see the pristine AST,
-//! which is why it runs ahead of every other transform.
+//! This is a standalone pass, not part of the [`Transformer`] traversal: the
+//! compiler needs a [`Semantic`](oxc_semantic::Semantic) (it can't work from
+//! [`Scoping`] alone — it walks the AST node tree) and rewrites the whole
+//! program. It must also see the pristine AST, so the caller is expected to run
+//! [`run`] **before** every other transform (JSX, ES lowering, …). [`run`]
+//! builds a `Semantic`, runs the compiler, swaps in the result, and rebuilds
+//! `Scoping` for the rest of the pipeline.
 //!
+//! [`Transformer`]: oxc_transformer::Transformer
 //! [facebook/react#36173]: https://github.com/facebook/react/pull/36173
 
 use oxc_allocator::Allocator;

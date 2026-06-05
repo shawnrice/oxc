@@ -17,7 +17,6 @@ use crate::{
     jsx::JsxOptions,
     plugins::{PluginsOptions, StyledComponentsOptions},
     proposals::ProposalOptions,
-    react_compiler::ReactCompilerOptions,
     regexp::RegExpOptions,
     typescript::TypeScriptOptions,
 };
@@ -58,29 +57,6 @@ pub struct TransformOptions {
     /// See [preset-react](https://babeljs.io/docs/babel-preset-react)
     pub jsx: JsxOptions,
 
-    /// [React Compiler](https://github.com/facebook/react/pull/36173) — **off by default**.
-    ///
-    /// `None` disables it (the default). When `Some`, the React Compiler runs as
-    /// the *first* transform (before JSX and ES lowering), memoizing React
-    /// components and hooks — it builds a `Semantic`, runs the compiler, replaces
-    /// the program, and rebuilds scoping for the downstream passes.
-    ///
-    /// The value is the compiler's concrete [`ReactCompilerOptions`]; build one
-    /// with `oxc_react_compiler::default_plugin_options` (which documents every
-    /// field, its accepted values, and the defaults) and override via
-    /// struct-update syntax:
-    ///
-    /// ```ignore
-    /// TransformOptions {
-    ///     react_compiler: Some(oxc_react_compiler::default_plugin_options()),
-    ///     ..Default::default()
-    /// }
-    /// ```
-    ///
-    /// The compiler lives in the out-of-tree `oxc_react_compiler` crate, which
-    /// pulls the (currently unpublished) React Compiler core crates.
-    pub react_compiler: Option<ReactCompilerOptions>,
-
     /// ECMAScript Env Options
     pub env: EnvOptions,
 
@@ -114,8 +90,6 @@ impl TransformOptions {
                 refresh: Some(ReactRefreshOptions::default()),
                 ..JsxOptions::default()
             },
-            // React Compiler is opt-in even with everything else enabled.
-            react_compiler: None,
             env: EnvOptions::enable_all(/* include_unfinished_plugins */ false),
             proposals: ProposalOptions::default(),
             plugins: PluginsOptions {
@@ -310,8 +284,6 @@ impl TryFrom<&BabelOptions> for TransformOptions {
             typescript,
             decorator,
             jsx,
-            // Babel options have no React Compiler equivalent; configure it directly.
-            react_compiler: None,
             env: EnvOptions {
                 module,
                 regexp,

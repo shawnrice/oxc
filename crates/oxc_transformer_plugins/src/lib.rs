@@ -1,5 +1,6 @@
 mod inject_global_variables;
 mod module_runner_transform;
+pub mod react_compiler;
 mod replace_global_defines;
 
 pub use inject_global_variables::*;

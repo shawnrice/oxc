@@ -172,7 +172,6 @@ impl TryFrom<TransformOptions> for oxc::transformer::TransformOptions {
             _ => EnvOptions::default(),
         };
         Ok(Self {
-            react_compiler: crate::react_compiler::resolve(options.react_compiler),
             cwd: options.cwd.map(PathBuf::from).unwrap_or_default(),
             assumptions: options.assumptions.map(Into::into).unwrap_or_default(),
             typescript: options
@@ -204,6 +203,16 @@ impl TryFrom<TransformOptions> for oxc::transformer::TransformOptions {
                 .map(oxc::transformer::PluginsOptions::from)
                 .unwrap_or_default(),
         })
+    }
+}
+
+impl TransformOptions {
+    /// Take the `reactCompiler` option and resolve it into the compiler's
+    /// `PluginOptions`. The React Compiler is a standalone pass driven by the
+    /// [`CompilerInterface`](oxc::CompilerInterface), so it is not part of
+    /// `oxc::transformer::TransformOptions`.
+    fn take_react_compiler(&mut self) -> Option<oxc_react_compiler::PluginOptions> {
+        crate::react_compiler::resolve(self.react_compiler.take())
     }
 }
 
@@ -751,6 +760,8 @@ struct Compiler {
 
     define: Option<ReplaceGlobalDefinesConfig>,
     inject: Option<InjectGlobalVariablesConfig>,
+    #[expect(clippy::struct_field_names)]
+    react_compiler: Option<oxc_react_compiler::PluginOptions>,
 
     helpers_used: FxHashMap<String, String>,
     errors: Vec<OxcDiagnostic>,
@@ -803,6 +814,8 @@ impl Compiler {
             .transpose()?
             .map(InjectGlobalVariablesConfig::new);
 
+        let react_compiler = options.as_mut().and_then(TransformOptions::take_react_compiler);
+
         let transform_options = match options {
             Some(options) => oxc::transformer::TransformOptions::try_from(options)
                 .map_err(|err| vec![OxcDiagnostic::error(err)])?,
@@ -819,6 +832,7 @@ impl Compiler {
             declaration_map: None,
             define,
             inject,
+            react_compiler,
             helpers_used: FxHashMap::default(),
             errors: vec![],
         })
@@ -850,6 +864,10 @@ impl CompilerInterface for Compiler {
 
     fn inject_options(&self) -> Option<InjectGlobalVariablesConfig> {
         self.inject.clone()
+    }
+
+    fn react_compiler_options(&self) -> Option<oxc_react_compiler::PluginOptions> {
+        self.react_compiler.clone()
     }
 
     fn after_codegen(&mut self, ret: CodegenReturn) {
