@@ -1,15 +1,20 @@
-use oxc_formatter_json::{BracketSpacing, Expand, JsonFormatOptions, JsonVariant, TrailingCommas};
+use oxc_formatter_json::{
+    BracketSpacing, Expand, JsonFormatOptions, JsonVariant, QuoteProps, TrailingCommas,
+};
 
 use super::{
-    super::oxfmtrc::{FormatConfig, ObjectWrapConfig, TrailingCommaConfig},
+    super::oxfmtrc::{FormatConfig, ObjectWrapConfig, QuotePropsConfig, TrailingCommaConfig},
     to_core_options::to_core_options,
 };
 
 /// Convert `FormatConfig` into validated `JsonFormatOptions` for `oxc_formatter_json`.
 ///
 /// Most JSON-specific output options are fixed by [`oxc_formatter_json::JsonVariant`].
-/// The exception is `trailingComma`, which the `jsonc`/`json5` variants honor
-/// (the `json` variant ignores it, matching Prettier forcing `"none"`).
+/// The exceptions:
+/// - `trailingComma`: honored by `jsonc`/`json5` (the `json` variant ignores it, matching
+///   Prettier forcing `"none"`).
+/// - `singleQuote` / `quoteProps`: honored by `json5` only (other variants always emit
+///   double-quoted strings and quoted keys).
 ///
 /// # Errors
 /// Returns error if any option value is invalid.
@@ -46,6 +51,19 @@ pub fn to_oxc_formatter_json(
         options.expand = match wrap {
             ObjectWrapConfig::Preserve => Expand::Auto,
             ObjectWrapConfig::Collapse => Expand::Never,
+        };
+    }
+    // [Prettier] singleQuote: boolean (default false). Only honored by `json5`.
+    if let Some(single_quote) = config.single_quote {
+        options.single_quote = single_quote;
+    }
+    // [Prettier] quoteProps: "as-needed" | "consistent" | "preserve" (default "as-needed").
+    // Only honored by `json5`.
+    if let Some(quote_props) = config.quote_props {
+        options.quote_props = match quote_props {
+            QuotePropsConfig::AsNeeded => QuoteProps::AsNeeded,
+            QuotePropsConfig::Consistent => QuoteProps::Consistent,
+            QuotePropsConfig::Preserve => QuoteProps::Preserve,
         };
     }
 

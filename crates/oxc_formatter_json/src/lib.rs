@@ -21,5 +21,5 @@ mod separated;
 pub use crate::{
     context::JsonFormatContext,
     format::format,
-    options::{BracketSpacing, Expand, JsonFormatOptions, JsonVariant, TrailingCommas},
+    options::{BracketSpacing, Expand, JsonFormatOptions, JsonVariant, QuoteProps, TrailingCommas},
 };

@@ -42,6 +42,12 @@ pub struct JsonFormatOptions {
     pub bracket_spacing: BracketSpacing,
     pub expand: Expand,
     pub trailing_commas: TrailingCommas,
+    /// Mirrors Prettier's `singleQuote` (default `false`). Only consulted by the `json5` variant;
+    /// the other variants always emit double-quoted strings (see [`Self::preferred_quote`]).
+    pub single_quote: bool,
+    /// Mirrors Prettier's `quoteProps`. Only consulted by the `json5` variant;
+    /// the other variants always quote object keys.
+    pub quote_props: QuoteProps,
 }
 
 impl JsonFormatOptions {
@@ -65,6 +71,54 @@ impl JsonFormatOptions {
             }
         }
     }
+
+    /// The quote byte (`b'"'` / `b'\''`) to enclose a string literal whose body is `inner`
+    /// (the content between the quotes), per Prettier's `print-string.js`.
+    ///
+    /// - `json` / `jsonc` / `json-stringify`: always `"`.
+    /// - `json5` with `quoteProps: "preserve"` and `singleQuote: false`: pinned to `"`
+    ///   (this lets the `json5` parser double as "JSON with comments and trailing commas").
+    /// - `json5` otherwise: Prettier's `getPreferredQuote` — start from the configured
+    ///   preference (`singleQuote`) and flip to the alternate when that reduces escapes
+    ///   (i.e. when the preferred quote occurs more often in `inner` than the alternate).
+    pub fn preferred_quote(&self, inner: &str) -> u8 {
+        if self.variant != JsonVariant::Json5
+            || (matches!(self.quote_props, QuoteProps::Preserve) && !self.single_quote)
+        {
+            return b'"';
+        }
+
+        let (preferred, alternate) = if self.single_quote { (b'\'', b'"') } else { (b'"', b'\'') };
+
+        // Count every occurrence (escaped ones included, matching `getPreferredQuote`).
+        let (mut preferred_count, mut alternate_count) = (0u32, 0u32);
+        for byte in inner.bytes() {
+            if byte == preferred {
+                preferred_count += 1;
+            } else if byte == alternate {
+                alternate_count += 1;
+            }
+        }
+
+        if preferred_count > alternate_count { alternate } else { preferred }
+    }
+}
+
+/// Mirrors Prettier's `quoteProps`: when (and whether) object keys keep their quotes.
+///
+/// Only the `json5` variant consults this; the other variants always quote keys.
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
+pub enum QuoteProps {
+    /// `quoteProps: "as-needed"`. Drop quotes from keys that are valid identifier names,
+    /// quote the rest (numeric-string keys like `"1.5"` stay quoted in json5).
+    #[default]
+    AsNeeded,
+    /// `quoteProps: "preserve"`. Keep keys exactly as authored (quoted stays quoted,
+    /// unquoted stays unquoted).
+    Preserve,
+    /// `quoteProps: "consistent"`. If any key in an object requires quotes, quote every
+    /// quotable key in that object; otherwise behave like `AsNeeded`.
+    Consistent,
 }
 
 /// Whether to insert spaces around brackets in object.

@@ -14,6 +14,7 @@ pub enum TestLanguage {
     Ts,
     Json,
     Jsonc,
+    Json5,
 }
 
 impl TestLanguage {
@@ -23,6 +24,7 @@ impl TestLanguage {
             Self::Ts => "ts",
             Self::Json => "json",
             Self::Jsonc => "jsonc",
+            Self::Json5 => "json5",
         }
     }
 
@@ -48,6 +50,15 @@ impl TestLanguage {
             Self::Jsonc => {
                 vec![base.join("json").join("jsonc"), base.join("json").join("with-comment")]
             }
+            // The `json5` parser. `json5-as-json-with-trailing-commas/` is the dedicated dir;
+            // `json/` and `with-comment/` also list `json5` calls (shared with `Json`/`Jsonc`),
+            // and `spec.rs` keeps only the `json5` ones here.
+            // Out-of-scope siblings: `range/json5/` (range formatting), `json-superset/` (inline snippets).
+            Self::Json5 => vec![
+                base.join("json").join("json5-as-json-with-trailing-commas"),
+                base.join("json").join("json"),
+                base.join("json").join("with-comment"),
+            ],
         }
     }
 }
